@@ -1,0 +1,26 @@
+Line	Text	Value	Type
+1:1	break		BREAK
+2:1	case		CASE
+3:1	char		CHAR
+4:1	const		CONST
+5:1	continue		CONTINUE
+6:1	default		DEFAULT
+7:1	do		DO
+8:1	double		DOUBLE
+9:1	else		ELSE
+10:1	enum		ENUM
+11:1	extern		EXTERN
+12:1	float		FLOAT
+13:1	for		FOR
+14:1	if		IF
+15:1	int		INT
+16:1	register		REGISTER
+17:1	return		RETURN
+18:1	sizeof		SIZEOF
+19:1	static		STATIC
+20:1	struct		STRUCT
+21:1	switch		SWITCH
+22:1	typedef		TYPEDEF
+23:1	union		UNION
+24:1	void		VOID
+25:1	while		WHILE
