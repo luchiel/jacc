@@ -7,7 +7,7 @@ SOURCES = $(wildcard $(SOURCES_PATH)/*.c)
 OBJECTS = $(patsubst $(SOURCES_PATH)/%.o, $(OBJECTS_PATH)/%.o, $(patsubst %.c, %.o, $(SOURCES)))
 
 test: all
-	./test.py
+	python test.py
 
 all: $(APPNAME)
 
