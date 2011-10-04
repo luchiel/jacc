@@ -8,6 +8,7 @@ typedef struct buffer_tag {
 } *buffer_t;
 
 extern buffer_t buffer_create(int initial_size);
+extern void buffer_ensure_capacity(buffer_t buffer, int capacity);
 extern void buffer_append(buffer_t buffer, char c);
 extern void buffer_append_string(buffer_t buffer, char *src, int len);
 extern void buffer_reset(buffer_t buffer);

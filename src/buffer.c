@@ -18,23 +18,23 @@ extern buffer_t buffer_create(int initial_size)
 	return buffer;
 }
 
-static inline void ensure_size(buffer_t buffer, int size)
+extern void buffer_ensure_capacity(buffer_t buffer, int capacity)
 {
-	if (size > buffer->size) {
-		buffer->buf = (char*)realloc(buffer->buf, size);
+	if (capacity > buffer->size) {
+		buffer->buf = (char*)realloc(buffer->buf, capacity);
 	}
 }
 
 extern void buffer_append(buffer_t buffer, char c)
 {
-	ensure_size(buffer, buffer->used + 1);
+	buffer_ensure_capacity(buffer, buffer->used + 1);
 	buffer->buf[buffer->used] = c;
 	buffer->used++;;
 }
 
 extern void buffer_append_string(buffer_t buffer, char *src, int len)
 {
-	ensure_size(buffer, buffer->used + len);
+	buffer_ensure_capacity(buffer, buffer->used + len);
 	memcpy(buffer->buf + buffer->used, src, len);
 	buffer->used += len;
 }

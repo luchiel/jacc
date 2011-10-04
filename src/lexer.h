@@ -2,6 +2,7 @@
 #define JACC_LEXER_H
 
 #include <stdio.h>
+#include "buffer.h"
 
 /* Keep in sync with lexer.c token_names */
 enum token_type {
@@ -60,7 +61,7 @@ extern int lexer_next_token(struct token *token);
 extern void lexer_destroy();
 
 extern const char *lexer_token_name(struct token *token);
-extern void lexer_token_value(struct token *token, char *buffer);
+extern void lexer_token_value(struct token *token, buffer_t buffer);
 extern void lexer_token_free_data(struct token *token);
 
 #endif

@@ -51,8 +51,7 @@ const char *basename(const char *path)
 int lex(const char *filename)
 {
     struct token token;
-    char token_value[32];
-    buffer_t token_text;
+    buffer_t token_text, token_value;
     char *content;
 
     int file_size;
@@ -65,6 +64,12 @@ int lex(const char *filename)
     token_text = buffer_create(1024);
     if (token_text == NULL) {
         fprintf(stderr, "Can't allocate token buffer\n");
+        return EXIT_FAILURE;
+    }
+
+    token_value = buffer_create(1024);
+    if (token_text == NULL) {
+        fprintf(stderr, "Can't allocate token value buffer\n");
         return EXIT_FAILURE;
     }
 
@@ -81,7 +86,7 @@ int lex(const char *filename)
         buffer_append(token_text, 0);
 
         printf("%d:%d\t%s\t%s\t%s\n", token.line, token.column, buffer_data(token_text),
-            token_value, lexer_token_name(&token));
+            buffer_data(token_value), lexer_token_name(&token));
         fflush(stdout);
 
         lexer_token_free_data(&token);
@@ -91,6 +96,8 @@ int lex(const char *filename)
         log_error("unexpected character");
     }
 
+    buffer_free(token_text);
+    buffer_free(token_value);
     lexer_destroy();
     free(content);
     return EXIT_SUCCESS;

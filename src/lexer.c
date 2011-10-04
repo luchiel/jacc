@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lexer.h"
-#include "buffer.h"
 #include "log.h"
 
 char *content;
@@ -295,22 +294,25 @@ extern const char *lexer_token_name(struct token *token)
     return token_names[token->type];
 }
 
-extern void lexer_token_value(struct token *token, char *buffer)
+extern void lexer_token_value(struct token *token, buffer_t buffer)
 {
-    /* TODO buffer overflow? */
+    buffer_reset(buffer);
     switch (token->type) {
     case TOK_INT_CONST:
-        sprintf(buffer, "%d", token->value.int_val);
+        buffer_ensure_capacity(buffer, 16);
+        sprintf(buffer_data(buffer), "%d", token->value.int_val);
         break;
     case TOK_FLOAT_CONST:
-        sprintf(buffer, "%lf", token->value.float_val);
+        buffer_ensure_capacity(buffer, 16);
+        sprintf(buffer_data(buffer), "%lf", token->value.float_val);
         break;
     case TOK_STRING_CONST:
     case TOK_IDENT:
-        sprintf(buffer, "%s", token->value.str_val);
+        buffer_ensure_capacity(buffer, strlen(token->value.str_val) + 1);
+        sprintf(buffer_data(buffer), "%s", token->value.str_val);
         break;
     default:
-        buffer[0] = 0;
+        buffer_append(buffer, 0);
     }
 }
 
