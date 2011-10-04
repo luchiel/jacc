@@ -59,6 +59,8 @@ def run_tests(dir, cmd_template):
 
             failed.append(test_name)
             continue
+        else:
+            unlink(output_file)
 
     return {
         'total': total,
