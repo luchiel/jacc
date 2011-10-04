@@ -1,0 +1,2 @@
+Line	Text	Value	Type
+int_bad_suffix.in:1:1: error: unknown suffix on integer constant

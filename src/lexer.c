@@ -2,6 +2,7 @@
 #include <string.h>
 #include "lexer.h"
 #include "buffer.h"
+#include "log.h"
 
 char *content;
 int content_size;
@@ -117,11 +118,15 @@ int is_digit()
     return cur_char >= '0' && cur_char <= '9';
 }
 
+int is_alpha()
+{
+    return (cur_char >= 'a' && cur_char <= 'z')
+        || (cur_char >= 'A' && cur_char <= 'Z');
+}
+
 int is_ident_start()
 {
-    return cur_char >= 'a' && cur_char <= 'z'
-        || cur_char >= 'A' && cur_char <= 'Z'
-        || cur_char == '_';
+    return is_alpha() || cur_char == '_';
 }
 
 int is_ident()
@@ -155,6 +160,12 @@ int digit_value(char c)
     return c - '0';
 }
 
+void lexer_error(struct token *token, const char *message)
+{
+    log_set_pos(token->line, token->column);
+    log_error(message);
+}
+
 void get_scalar(struct token *token)
 {
     int result = 0;
@@ -163,6 +174,17 @@ void get_scalar(struct token *token)
         result = result * 10 + digit_value(cur_char);
         get_char();
     } while (is_digit());
+
+    buffer_reset(buffer);
+    while (is_alpha()) {
+        buffer_append(buffer, cur_char);
+        get_char();
+    }
+
+    if (buffer_size(buffer) > 0) {
+        lexer_error(token, "unknown suffix on integer constant");
+        return;
+    }
 
     token->type = TOK_INT_CONST;
     token->value.int_val = result;

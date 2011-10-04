@@ -3,6 +3,7 @@
 #include <string.h>
 #include "lexer.h"
 #include "buffer.h"
+#include "log.h"
 
 void print_usage()
 {
@@ -35,6 +36,18 @@ int read_file(const char *filename, char **content, int *size)
     return 0;
 }
 
+const char *basename(const char *path)
+{
+    const char *ptr = path;
+    while (*path != 0) {
+        if (*path == '/') {
+            ptr = path + 1;
+        }
+        path++;
+    }
+    return ptr;
+}
+
 int lex(const char *filename)
 {
     struct token token;
@@ -56,6 +69,9 @@ int lex(const char *filename)
     }
 
     printf("Line\tText\tValue\tType\n");
+    fflush(stdout);
+
+    log_set_unit(basename(filename));
     lexer_init(content, file_size, stderr);
     while (lexer_next_token(&token)) {
         lexer_token_value(&token, token_value);
@@ -66,12 +82,13 @@ int lex(const char *filename)
 
         printf("%d:%d\t%s\t%s\t%s\n", token.line, token.column, buffer_data(token_text),
             token_value, lexer_token_name(&token));
+        fflush(stdout);
 
         lexer_token_free_data(&token);
     }
 
     if (token.type == TOK_UNKNOWN) {
-        fprintf(stderr, "Unexpected character on line %d:%d\n", token.line, token.column);
+        log_error("unexpected character");
     }
 
     lexer_destroy();
