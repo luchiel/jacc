@@ -113,37 +113,37 @@ void lexer_destroy()
     buffer_free(buffer);
 }
 
-int is_digit()
+int is_digit(char chr)
 {
-    return cur_char >= '0' && cur_char <= '9';
+    return chr >= '0' && chr <= '9';
 }
 
-int is_alpha()
+int is_alpha(char chr)
 {
-    return (cur_char >= 'a' && cur_char <= 'z')
-        || (cur_char >= 'A' && cur_char <= 'Z');
+    return (chr >= 'a' && chr <= 'z')
+        || (chr >= 'A' && chr <= 'Z');
 }
 
-int is_ident_start()
+int is_ident_start(char chr)
 {
-    return is_alpha() || cur_char == '_';
+    return is_alpha(chr) || chr == '_';
 }
 
-int is_ident()
+int is_ident(char chr)
 {
-    return is_ident_start() || is_digit();
+    return is_ident_start(chr) || is_digit(chr);
 }
 
-int is_whitespace()
+int is_whitespace(char chr)
 {
-    return cur_char == '\n' || cur_char == '\r'
-        || cur_char == '\t' || cur_char == '\v'
-        || cur_char == ' ';
+    return chr == '\n' || chr == '\r'
+        || chr == '\t' || chr == '\v'
+        || chr == ' ';
 }
 
 void skip_ws()
 {
-    while (is_whitespace()) {
+    while (is_whitespace(cur_char)) {
         if (cur_char == '\n') {
             column = 0;
             line++;
@@ -173,10 +173,10 @@ void get_scalar(struct token *token)
     do {
         result = result * 10 + digit_value(cur_char);
         get_char();
-    } while (is_digit());
+    } while (is_digit(cur_char));
 
     buffer_reset(buffer);
-    while (is_alpha()) {
+    while (is_alpha(cur_char)) {
         buffer_append(buffer, cur_char);
         get_char();
     }
@@ -208,7 +208,7 @@ void get_ident(struct token *token)
     do {
         buffer_append(buffer, cur_char);
         get_char();
-    } while (is_ident());
+    } while (is_ident(cur_char));
 
     buffer_append(buffer, 0);
 
@@ -226,9 +226,9 @@ int lexer_next_token(struct token *token)
     token->column = column;
     token->start = offset - 1;
 
-    if (is_digit()) {
+    if (is_digit(cur_char)) {
         get_scalar(token);
-    } else if (is_ident_start()) {
+    } else if (is_ident_start(cur_char)) {
         get_ident(token);
     } else if (cur_char == 0) {
         token->type = TOK_EOS;
