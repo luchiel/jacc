@@ -30,7 +30,7 @@ def run_tests(dir, cmd_template):
         output_file = change_ext(test, '.out')
         answer_file = change_ext(test, '.answer')
         diff_file = change_ext(test, '.diff')
-    
+
         cmd = cmd_template % {
             'input': test,
             'output': output_file,
@@ -50,7 +50,7 @@ def run_tests(dir, cmd_template):
         except IOError:
             failed.append('%s (IO)' % test_name)
             continue
-        
+
         if output != answer:
             diff = difflib.unified_diff(output, answer, lineterm='')
             with open(diff_file, 'w') as diff_file:

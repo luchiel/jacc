@@ -189,7 +189,7 @@ void get_ident(struct token *token)
     } while (is_ident());
 
     buffer_append(buffer, 0);
-    
+
     token->type = get_ident_type(buffer_data(buffer));
     if (token->type == TOK_IDENT) {
         token->value.str_val = buffer_data_copy(buffer);

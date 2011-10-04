@@ -41,7 +41,7 @@ int lex(const char *filename)
     char token_value[32];
     buffer_t token_text;
     char *content;
-    
+
     int file_size;
 
     if (read_file(filename, &content, &file_size) != 0) {
@@ -64,16 +64,16 @@ int lex(const char *filename)
         buffer_append_string(token_text, content + token.start, token.end - token.start + 1);
         buffer_append(token_text, 0);
 
-        printf("%d:%d\t%s\t%s\t%s\n", token.line, token.column, buffer_data(token_text), 
+        printf("%d:%d\t%s\t%s\t%s\n", token.line, token.column, buffer_data(token_text),
             token_value, lexer_token_name(&token));
-        
+
         lexer_token_free_data(&token);
     }
 
     if (token.type == TOK_UNKNOWN) {
         fprintf(stderr, "Unexpected character on line %d:%d\n", token.line, token.column);
     }
-    
+
     lexer_destroy();
     free(content);
     return EXIT_SUCCESS;
