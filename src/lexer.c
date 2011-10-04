@@ -118,6 +118,30 @@ int is_digit(char chr)
     return chr >= '0' && chr <= '9';
 }
 
+int is_octdigit(char chr)
+{
+    return chr >= '0' && chr <= '7';
+}
+
+int is_hexdigit(char chr)
+{
+    return is_digit(chr)
+        || (chr >= 'a' && chr <= 'f')
+        || (chr >= 'A' && chr <= 'F');
+}
+
+int is_digit_ex(char chr, int base)
+{
+    if (base == 10) {
+        return is_digit(chr);
+    } else if (base == 8) {
+        return is_octdigit(chr);
+    } else if (base == 16) {
+        return is_hexdigit(chr);
+    }
+    return 0;
+}
+
 int is_alpha(char chr)
 {
     return (chr >= 'a' && chr <= 'z')
@@ -155,7 +179,9 @@ void skip_ws()
 int digit_value(char c)
 {
     if (c >= 'a' && c <= 'f') {
-        return c - 'a';
+        return c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
     }
     return c - '0';
 }
@@ -168,12 +194,33 @@ void lexer_error(struct token *token, const char *message)
 
 void get_scalar(struct token *token)
 {
-    int result = 0;
+    int result = 0, base = 10;
 
-    do {
-        result = result * 10 + digit_value(cur_char);
+    if (cur_char == '0') {
+        if (next_char == 'x' || next_char == 'X') {
+            get_char();
+            get_char();
+            base = 16;
+        } else if (is_digit(next_char)) {
+            get_char();
+            base = 8;
+        }
+    }
+
+    if (!is_digit_ex(cur_char, base)) {
+        lexer_error(token, "bad integer constant");
+        return;
+    }
+
+    while (is_digit_ex(cur_char, base)) {
+        result = result * base + digit_value(cur_char);
         get_char();
-    } while (is_digit(cur_char));
+    }
+
+    if (base == 8 && is_digit(cur_char)) {
+        lexer_error(token, "invalid digit in octal constant");
+        return;
+    }
 
     buffer_reset(buffer);
     while (is_alpha(cur_char)) {

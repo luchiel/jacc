@@ -1,0 +1,2 @@
+Line	Text	Value	Type
+bad_octal_const_1.in:1:1: error: bad integer constant

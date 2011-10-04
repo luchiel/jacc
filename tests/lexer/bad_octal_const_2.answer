@@ -1,0 +1,2 @@
+Line	Text	Value	Type
+bad_octal_const_2.in:1:1: error: invalid digit in octal constant
