@@ -5,7 +5,7 @@ SOURCES_PATH = src
 OBJECTS_PATH = obj
 SOURCES = $(wildcard $(SOURCES_PATH)/*.c)
 OBJECTS = $(patsubst $(SOURCES_PATH)/%.o, $(OBJECTS_PATH)/%.o, $(patsubst %.c, %.o, $(SOURCES)))
-CFLAGS += -Wall -Wextra
+CFLAGS += -g -Wall -Wextra
 
 test: all
 	python test.py

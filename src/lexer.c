@@ -238,7 +238,7 @@ void get_scalar(struct token *token)
 
 enum token_type get_ident_type(const char *ident)
 {
-    // TODO use hash table instead?
+    /* TODO use hash table instead? */
     int i;
     for (i = 0; i <= TOK_WHILE - TOK_BREAK; i++) {
         if (strcmp(ident, idents[i]) == 0) {
