@@ -7,6 +7,11 @@
 char *unit_name = NULL;
 int unit_line = -1, unit_column = -1;
 
+extern void log_close()
+{
+    free(unit_name);
+}
+
 extern void log_set_unit(const char *name)
 {
     int len = strlen(name);

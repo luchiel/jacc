@@ -100,6 +100,8 @@ int lex(const char *filename)
     buffer_free(token_value);
     lexer_destroy();
     free(content);
+    log_close();
+
     return EXIT_SUCCESS;
 }
 

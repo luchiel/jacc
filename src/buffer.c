@@ -67,4 +67,5 @@ extern char *buffer_data_copy(buffer_t buffer)
 extern void buffer_free(buffer_t buffer)
 {
 	free(buffer->buf);
+	free(buffer);
 }

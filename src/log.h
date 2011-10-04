@@ -1,6 +1,8 @@
 #ifndef JACC_LOG_H
 #define JACC_LOG_H
 
+extern void log_close();
+
 extern void log_set_unit(const char *name);
 extern void log_set_pos(int line, int column);
 
