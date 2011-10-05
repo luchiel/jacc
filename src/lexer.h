@@ -10,6 +10,7 @@ enum token_type {
     TOK_INT_CONST,
     TOK_FLOAT_CONST,
     TOK_IDENT,
+    TOK_COMMENT,
 
     TOK_BREAK,
     TOK_CASE,

@@ -22,6 +22,7 @@ const char* token_names[] = {
     "INT_CONST",
     "FLOAT_CONST",
     "IDENT",
+    "COMMENT",
 
     "BREAK",
     "CASE",
@@ -214,9 +215,14 @@ int is_ident(char chr)
     return is_ident_start(chr) || is_digit(chr);
 }
 
+int is_newline(char chr)
+{
+    return chr == '\n' || chr == '\r';
+}
+
 int is_whitespace(char chr)
 {
-    return chr == '\n' || chr == '\r'
+    return is_newline(chr)
         || chr == '\t' || chr == '\v'
         || chr == ' ';
 }
@@ -244,6 +250,7 @@ int digit_value(char c)
 
 void lexer_error(struct token *token, const char *message)
 {
+    token->type = TOK_ERROR;
     log_set_pos(token->line, token->column);
     log_error(message);
 }
@@ -435,6 +442,21 @@ enum token_type get_punctuator_type()
     return TOK_ERROR;
 }
 
+void get_line_comment(struct token *token)
+{
+    get_char();
+    get_char();
+    buffer_reset(buffer);
+    while (cur_char && !is_newline(cur_char)) {
+        buffer_append(buffer, cur_char);
+        get_char();
+    }
+    buffer_append(buffer, 0);
+
+    token->type = TOK_COMMENT;
+    token->value.str_val = buffer_data_copy(buffer);
+}
+
 int lexer_next_token(struct token *token)
 {
     skip_ws();
@@ -450,11 +472,14 @@ int lexer_next_token(struct token *token)
     } else if (cur_char == 0) {
         token->type = TOK_EOS;
     } else {
-        token->type = get_punctuator_type();
-    }
-
-    if (token->type == TOK_ERROR) {
-        lexer_error(token, "unexpected character");
+        if (cur_char == '/' && next_char == '/') {
+            get_line_comment(token);
+        } else {
+            token->type = get_punctuator_type();
+            if (token->type == TOK_ERROR) {
+               lexer_error(token, "unexpected character");
+            }
+        }
     }
 
     token->end = offset - 2;
@@ -483,6 +508,7 @@ extern void lexer_token_value(struct token *token, buffer_t buffer)
         break;
     case TOK_STRING_CONST:
     case TOK_IDENT:
+    case TOK_COMMENT:
         buffer_ensure_capacity(buffer, strlen(token->value.str_val) + 1);
         sprintf(buffer_data(buffer), "%s", token->value.str_val);
         break;
@@ -493,7 +519,10 @@ extern void lexer_token_value(struct token *token, buffer_t buffer)
 
 extern void lexer_token_free_data(struct token *token)
 {
-    if (token->type == TOK_STRING_CONST || token->type == TOK_IDENT) {
+    switch (token->type) {
+    case TOK_STRING_CONST:
+    case TOK_IDENT:
+    case TOK_COMMENT:
         free(token->value.str_val);
     }
 }
