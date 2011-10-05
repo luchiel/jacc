@@ -95,7 +95,7 @@ enum token_type {
     TOK_BIT_XOR_ASSIGN,
 
     TOK_EOS,
-    TOK_UNKNOWN,
+    TOK_ERROR,
 };
 
 struct token {

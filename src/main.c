@@ -92,10 +92,6 @@ int lex(const char *filename)
         lexer_token_free_data(&token);
     }
 
-    if (token.type == TOK_UNKNOWN) {
-        log_error("unexpected character");
-    }
-
     buffer_free(token_text);
     buffer_free(token_value);
     lexer_destroy();

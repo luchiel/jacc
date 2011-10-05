@@ -432,7 +432,7 @@ enum token_type get_punctuator_type()
             }
             return get_1way_punctuator(TOK_DOT);
     }
-    return TOK_UNKNOWN;
+    return TOK_ERROR;
 }
 
 int lexer_next_token(struct token *token)
@@ -451,6 +451,10 @@ int lexer_next_token(struct token *token)
         token->type = TOK_EOS;
     } else {
         token->type = get_punctuator_type();
+    }
+
+    if (token->type == TOK_ERROR) {
+        lexer_error(token, "unexpected character");
     }
 
     token->end = offset - 2;
