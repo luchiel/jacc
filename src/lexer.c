@@ -457,6 +457,29 @@ void get_line_comment(struct token *token)
     token->value.str_val = buffer_data_copy(buffer);
 }
 
+void get_multiline_comment(struct token *token)
+{
+    get_char();
+    get_char();
+    buffer_reset(buffer);
+    while ((cur_char != '*' || next_char != '/') && cur_char) {
+        buffer_append(buffer, cur_char);
+        get_char();
+    }
+
+    if (cur_char != '*') {
+        lexer_error(token, "unexpected end of stream");
+        return;
+    }
+
+    get_char();
+    get_char();
+    buffer_append(buffer, 0);
+
+    token->type = TOK_COMMENT;
+    token->value.str_val = buffer_data_copy(buffer);
+}
+
 int lexer_next_token(struct token *token)
 {
     skip_ws();
@@ -474,6 +497,8 @@ int lexer_next_token(struct token *token)
     } else {
         if (cur_char == '/' && next_char == '/') {
             get_line_comment(token);
+        } else if (cur_char == '/' && next_char == '*') {
+            get_multiline_comment(token);
         } else {
             token->type = get_punctuator_type();
             if (token->type == TOK_ERROR) {
