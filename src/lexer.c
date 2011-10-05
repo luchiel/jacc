@@ -49,6 +49,63 @@ const char* token_names[] = {
     "VOID",
     "WHILE",
 
+    "LBRACKET",
+    "RBRACKET",
+    "LBRACE",
+    "RBRACE",
+    "LPAREN",
+    "RPAREN",
+
+    "DOT",
+    "COMMA",
+    "AMP",
+    "TILDE",
+    "QUESTION",
+    "COLON",
+    "SEMICOLON",
+    "ELLIPSIS",
+    "STAR",
+
+    "REF_OP",
+
+    "INC_OP",
+    "DEC_OP",
+
+    "ADD_OP",
+    "SUB_OP",
+    "DIV_OP",
+    "MOD_OP",
+
+    "NEG_OP",
+
+    "LSHIFT_OP",
+    "RSHIFT_OP",
+
+    "LT_OP",
+    "LE_OP",
+    "GT_OP",
+    "GE_OP",
+    "EQUAL_OP",
+    "NOT_EQUAL_OP",
+
+    "BIT_XOR_OP",
+    "BIT_OR_OP",
+
+    "AND_OP",
+    "OR_OP",
+
+    "ASSIGN",
+    "MUL_ASSIGN",
+    "DIV_ASSIGN",
+    "MOD_ASSIGN",
+    "ADD_ASSIGN",
+    "SUB_ASSIGN",
+    "LSHIFT_ASSIGN",
+    "RSHIFT_ASSIGN",
+    "BIT_OR_ASSIGN",
+    "BIT_AND_ASSIGN",
+    "BIT_XOR_ASSIGN",
+
     "EOS",
     "UNKNOWN",
 };
@@ -264,6 +321,120 @@ void get_ident(struct token *token)
     }
 }
 
+enum token_type get_1way_punctuator(enum token_type type)
+{
+    get_char();
+    return type;
+}
+
+enum token_type get_2way_punctuator(enum token_type t1,
+        enum token_type t2)
+{
+    if (next_char == '=') {
+        get_char();
+        return get_1way_punctuator(t2);
+    }
+    return get_1way_punctuator(t1);
+}
+
+enum token_type get_3way_punctuator(enum token_type t1,
+        enum token_type t2, enum token_type t3)
+{
+    if (next_char == cur_char) {
+        get_char();
+        return get_1way_punctuator(t3);
+    }
+    return get_2way_punctuator(t1, t2);
+}
+
+enum token_type get_punctuator_type()
+{
+    switch (cur_char) {
+        case '(': return get_1way_punctuator(TOK_LPAREN);
+        case ')': return get_1way_punctuator(TOK_RPAREN);
+        case '[': return get_1way_punctuator(TOK_LBRACKET);
+        case ']': return get_1way_punctuator(TOK_RBRACKET);
+        case '{': return get_1way_punctuator(TOK_LBRACE);
+        case '}': return get_1way_punctuator(TOK_RBRACE);
+
+        case ',': return get_1way_punctuator(TOK_COMMA);
+        case '~': return get_1way_punctuator(TOK_TILDE);
+        case '?': return get_1way_punctuator(TOK_QUESTION);
+        case ';': return get_1way_punctuator(TOK_SEMICOLON);
+
+        case '/': return get_2way_punctuator(TOK_DIV_OP, TOK_DIV_ASSIGN);
+        case '*': return get_2way_punctuator(TOK_STAR, TOK_MUL_ASSIGN);
+
+        case '!': return get_2way_punctuator(TOK_NEG_OP, TOK_NOT_EQUAL_OP);
+        case '=': return get_2way_punctuator(TOK_ASSIGN, TOK_EQUAL_OP);
+        case '^': return get_2way_punctuator(TOK_BIT_XOR_OP, TOK_BIT_XOR_ASSIGN);
+
+        case '+': return get_3way_punctuator(TOK_ADD_OP, TOK_ADD_ASSIGN, TOK_INC_OP);
+        case '|': return get_3way_punctuator(TOK_BIT_OR_OP, TOK_BIT_OR_ASSIGN, TOK_OR_OP);
+        case '&': return get_3way_punctuator(TOK_AMP, TOK_BIT_AND_ASSIGN, TOK_AND_OP);
+
+        case ':':
+            if (next_char == '>') {
+                get_char();
+                return get_1way_punctuator(TOK_RBRACKET);
+            }
+            return get_1way_punctuator(TOK_COLON);
+        case '%':
+            if (next_char == '>') {
+                get_char();
+                return get_1way_punctuator(TOK_RBRACE);
+            }
+            return get_2way_punctuator(TOK_MOD_OP, TOK_MOD_ASSIGN);
+        case '<':
+            if (next_char == '<') {
+                get_char();
+                if (next_char == '=') {
+                    get_char();
+                    return get_1way_punctuator(TOK_LSHIFT_ASSIGN);
+                } else {
+                    return get_1way_punctuator(TOK_LSHIFT_OP);
+                }
+                return get_1way_punctuator(TOK_LE_OP);
+            } else if (next_char == ':') {
+                get_char();
+                return get_1way_punctuator(TOK_LBRACKET);
+            } else if (next_char == '%') {
+                get_char();
+                return get_1way_punctuator(TOK_LBRACE);
+            }
+            return get_2way_punctuator(TOK_LT_OP, TOK_LE_OP);
+        case '>':
+            if (next_char == '>') {
+                get_char();
+                if (next_char == '=') {
+                    get_char();
+                    return get_1way_punctuator(TOK_RSHIFT_ASSIGN);
+                } else {
+                    return get_1way_punctuator(TOK_RSHIFT_OP);
+                }
+                return get_1way_punctuator(TOK_GE_OP);
+            }
+            return get_2way_punctuator(TOK_GT_OP, TOK_GE_OP);
+        case '-':
+            if (next_char == '>') {
+                get_char();
+                return get_1way_punctuator(TOK_REF_OP);
+            }
+            return get_3way_punctuator(TOK_SUB_OP, TOK_SUB_ASSIGN, TOK_DEC_OP);
+        case '.':
+            if (next_char == '.') {
+                get_char();
+                if (next_char == '.') {
+                    get_char();
+                    return get_1way_punctuator(TOK_ELLIPSIS);
+                }
+                return TOK_DOT; /* we want to stay on the second dot */
+            }
+            return get_1way_punctuator(TOK_DOT);
+    }
+    return TOK_UNKNOWN;
+}
+
 int lexer_next_token(struct token *token)
 {
     skip_ws();
@@ -279,7 +450,7 @@ int lexer_next_token(struct token *token)
     } else if (cur_char == 0) {
         token->type = TOK_EOS;
     } else {
-        token->type = TOK_UNKNOWN;
+        token->type = get_punctuator_type();
     }
 
     token->end = offset - 2;
