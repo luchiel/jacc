@@ -480,6 +480,103 @@ void get_multiline_comment(struct token *token)
     token->value.str_val = buffer_data_copy(buffer);
 }
 
+void get_single_string(struct token *token, char quote)
+{
+    int i, value;
+    get_char();
+    while (cur_char != quote && !is_newline(cur_char)) {
+        if (cur_char == '\\') {
+            get_char();
+            switch (cur_char) {
+            case '\'': buffer_append(buffer, '\''); break;
+            case '\"': buffer_append(buffer, '\"'); break;
+            case '\\': buffer_append(buffer, '\\'); break;
+            case '?':  buffer_append(buffer, '\?'); break;
+            case 'a':  buffer_append(buffer, '\a'); break;
+            case 'b':  buffer_append(buffer, '\b'); break;
+            case 'f':  buffer_append(buffer, '\f'); break;
+            case 'n':  buffer_append(buffer, '\n'); break;
+            case 'r':  buffer_append(buffer, '\r'); break;
+            case 't':  buffer_append(buffer, '\t'); break;
+            case 'v':  buffer_append(buffer, '\v'); break;
+            case 'x':
+                get_char();
+                if (is_hexdigit(cur_char)) {
+                    if (is_hexdigit(next_char)) {
+                        buffer_append(buffer, digit_value(cur_char) * 16 + digit_value(next_char));
+                        get_char();
+                        get_char();
+                    } else {
+                        buffer_append(buffer, digit_value(cur_char));
+                        get_char();
+                    }
+                } else {
+                    lexer_error(token, "\\x used with no following hex digits");
+                    return;
+                }
+                continue;
+            default:
+                if (is_octdigit(cur_char)) {
+                    value = 0;
+                    for (i = 0; i < 3 && is_octdigit(cur_char); i++) {
+                        value = value * 8 + digit_value(cur_char);
+                        get_char();
+                    }
+                    if (value > 255) {
+                        lexer_error(token, "octal escape sequence out of range");
+                        return;
+                    }
+                    buffer_append(buffer, value);
+                } else {
+                    lexer_error(token, "unknown escape sequence");
+                    return;
+                }
+                continue;
+            }
+        } else if (!cur_char) {
+            lexer_error(token, "unexpected end of stream");
+            return;
+        } else {
+            buffer_append(buffer, cur_char);
+        }
+        get_char();
+    }
+
+    if (is_newline(cur_char)) {
+        lexer_error(token, "missing terminating character");
+        return;
+    }
+    get_char();
+}
+
+void get_string(struct token *token, char quote)
+{
+    buffer_reset(buffer);
+    while (cur_char == quote) {
+        get_single_string(token, quote);
+        if (token->type == TOK_ERROR) {
+            return;
+        }
+        skip_ws();
+    }
+    buffer_append(buffer, 0);
+
+    if (quote == '"') {
+        token->type = TOK_STRING_CONST;
+        token->value.str_val = buffer_data_copy(buffer);
+    } else {
+        if (buffer_size(buffer) == 1) {
+            lexer_error(token, "empty character constant");
+            return;
+        } else if (buffer_size(buffer) > 2) {
+            lexer_error(token, "multi-character character constant");
+            return;
+        }
+        token->type = TOK_INT_CONST;
+        token->value.int_val = buffer_data(buffer)[0];
+    }
+}
+
 int lexer_next_token(struct token *token)
 {
     skip_ws();
@@ -492,6 +589,10 @@ int lexer_next_token(struct token *token)
         get_scalar(token);
     } else if (is_ident_start(cur_char)) {
         get_ident(token);
+    } else if (cur_char == '"') {
+        get_string(token, '"');
+    } else if (cur_char == '\'') {
+        get_string(token, '\'');
     } else if (cur_char == 0) {
         token->type = TOK_EOS;
     } else {
