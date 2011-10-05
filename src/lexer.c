@@ -178,9 +178,9 @@ void skip_ws()
 int digit_value(char c)
 {
     if (c >= 'a' && c <= 'f') {
-        return c - 'a' + 10;
+        return c - 'a' + 0xA;
     } else if (c >= 'A' && c <= 'F') {
-        return c - 'A' + 10;
+        return c - 'A' + 0xA;
     }
     return c - '0';
 }
