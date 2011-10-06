@@ -227,6 +227,17 @@ int is_whitespace(char chr)
         || chr == ' ';
 }
 
+int is_exp(char chr)
+{
+    return chr == 'e' || chr == 'E';
+}
+
+int is_float_part_separator()
+{
+    return (cur_char == '.' && (is_digit(next_char) || is_exp(next_char)))
+        || (is_exp(cur_char) && (next_char == '+' || next_char == '-' || is_digit(next_char)));
+}
+
 void skip_ws()
 {
     while (is_whitespace(cur_char)) {
@@ -255,10 +266,49 @@ void lexer_error(struct token *token, const char *message)
     log_error(message);
 }
 
+void read_dec_number(struct token *token, const char *error_msg)
+{
+    if (!is_digit(cur_char)) {
+        lexer_error(token, error_msg);
+        return;
+    }
+
+    while (is_digit(cur_char)) {
+        buffer_append(buffer, cur_char);
+        get_char();
+    }
+}
+
+void get_float_part(struct token *token)
+{
+    /* we have integer part in the buffer */
+    buffer_append(buffer, cur_char); /* one of .eE */
+    if (cur_char == '.') {
+        get_char();
+        if (is_digit(cur_char) || buffer_size(buffer) == 1) {
+            read_dec_number(token, "invalid float constant");
+        }
+    }
+
+    if (cur_char == 'e' || cur_char == 'E') {
+        get_char();
+        if (cur_char == '+' || cur_char == '-') {
+            buffer_append(buffer, cur_char);
+            get_char();
+        }
+        read_dec_number(token, "invalid float constant");
+    }
+    buffer_append(buffer, 0);
+    token->type = TOK_FLOAT_CONST;
+    printf("!!!%s!!!", buffer_data(buffer));
+    sscanf(buffer_data(buffer), "%lf", &token->value.float_val);
+}
+
 void get_scalar(struct token *token)
 {
     int result = 0, base = 10;
 
+    buffer_reset(buffer);
     if (cur_char == '0') {
         if (next_char == 'x' || next_char == 'X') {
             get_char();
@@ -276,12 +326,18 @@ void get_scalar(struct token *token)
     }
 
     while (is_digit_ex(cur_char, base)) {
+        buffer_append(buffer, cur_char);
         result = result * base + digit_value(cur_char);
         get_char();
     }
 
     if (base == 8 && is_digit(cur_char)) {
         lexer_error(token, "invalid digit in octal constant");
+        return;
+    }
+
+    if (base == 10 && (cur_char == '.' || cur_char == 'e' || cur_char == 'E')) {
+        get_float_part(token);
         return;
     }
 
@@ -593,6 +649,9 @@ int lexer_next_token(struct token *token)
         get_string(token, '"');
     } else if (cur_char == '\'') {
         get_string(token, '\'');
+    } else if (is_float_part_separator()) {
+        buffer_reset(buffer);
+        get_float_part(token);
     } else if (cur_char == 0) {
         token->type = TOK_EOS;
     } else {
