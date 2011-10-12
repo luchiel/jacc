@@ -40,7 +40,7 @@ const char *basename(const char *path)
 {
     const char *ptr = path;
     while (*path != 0) {
-        if (*path == '/') {
+        if (*path == '/' || *path == '\\') {
             ptr = path + 1;
         }
         path++;
