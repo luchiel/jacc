@@ -5,6 +5,7 @@ import difflib
 
 tests = {
 	'lexer': 'jacc lex "%(input)s" > "%(output)s" 2>&1',
+    'expr': 'jacc parse_expr "%(input)s" > "%(output)s" 2>&1',
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))
