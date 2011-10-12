@@ -232,12 +232,6 @@ int is_exp(char chr)
     return chr == 'e' || chr == 'E';
 }
 
-int is_float_part_separator()
-{
-    return (cur_char == '.' && (is_digit(next_char) || is_exp(next_char)))
-        || (is_exp(cur_char) && (next_char == '+' || next_char == '-' || is_digit(next_char)));
-}
-
 void skip_ws()
 {
     while (is_whitespace(cur_char)) {
@@ -282,25 +276,31 @@ void read_dec_number(struct token *token, const char *error_msg)
 void get_float_part(struct token *token)
 {
     /* we have integer part in the buffer */
-    buffer_append(buffer, cur_char); /* one of .eE */
     if (cur_char == '.') {
+        buffer_append(buffer, '.');
         get_char();
         if (is_digit(cur_char) || buffer_size(buffer) == 1) {
             read_dec_number(token, "invalid float constant");
+            if (token->type == TOK_ERROR) {
+                return;
+            }
         }
     }
 
     if (cur_char == 'e' || cur_char == 'E') {
+        buffer_append(buffer, 'e');
         get_char();
         if (cur_char == '+' || cur_char == '-') {
             buffer_append(buffer, cur_char);
             get_char();
         }
         read_dec_number(token, "invalid float constant");
+        if (token->type == TOK_ERROR) {
+            return;
+        }
     }
     buffer_append(buffer, 0);
     token->type = TOK_FLOAT_CONST;
-    printf("!!!%s!!!", buffer_data(buffer));
     sscanf(buffer_data(buffer), "%lf", &token->value.float_val);
 }
 
@@ -519,6 +519,9 @@ void get_multiline_comment(struct token *token)
     get_char();
     buffer_reset(buffer);
     while ((cur_char != '*' || next_char != '/') && cur_char) {
+        if (cur_char == '\n') {
+            line++;
+        }
         buffer_append(buffer, cur_char);
         get_char();
     }
@@ -649,7 +652,7 @@ int lexer_next_token(struct token *token)
         get_string(token, '"');
     } else if (cur_char == '\'') {
         get_string(token, '\'');
-    } else if (is_float_part_separator()) {
+    } else if (cur_char == '.' && is_digit(next_char)) {
         buffer_reset(buffer);
         get_float_part(token);
     } else if (cur_char == 0) {

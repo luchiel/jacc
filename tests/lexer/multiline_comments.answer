@@ -10,4 +10,4 @@ Line	Text	Value	Type
  * line 1
  * line 2
  	COMMENT
-multiline_comments.in:6:2: error: unexpected end of stream
+multiline_comments.in:9:2: error: unexpected end of stream
