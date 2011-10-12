@@ -3,18 +3,18 @@
 #include "lexer.h"
 #include "log.h"
 
-char *content;
-int content_size;
-int content_pos;
-
-FILE *error_stream;
+FILE *stream;
+char stream_buffer[4096];
+int stream_buffer_size;
+int stream_buffer_pos;
 
 buffer_t buffer;
+buffer_t text_buffer;
+
 char cur_char;
 char next_char;
 
 int line, column;
-int offset;
 
 /* Keep in sync with lexer.h token_type_t */
 const char* token_names[] = {
@@ -139,28 +139,37 @@ const char *idents[] = {
     "while",
 };
 
+void read_stream()
+{
+    stream_buffer_size = fread(stream_buffer, 1, sizeof(stream_buffer), stream);
+    stream_buffer_pos = 0;
+}
+
 void get_char()
 {
     cur_char = next_char;
-    offset++;
+    buffer_append(text_buffer, cur_char);
     column++;
-    if (offset < content_size) {
-        next_char = content[offset];
+    if (stream_buffer_pos < stream_buffer_size) {
+        next_char = stream_buffer[stream_buffer_pos];
+        stream_buffer_pos++;
+        if (stream_buffer_pos == stream_buffer_size) {
+            read_stream();
+        }
     } else {
         next_char = 0;
     }
 }
 
-void lexer_init(char *content_, int size_, FILE *error_stream_)
+void lexer_init(FILE *stream_)
 {
-    content = content_;
-    content_size = size_;
-    error_stream = error_stream_;
-    offset = -1;
+    stream = stream_;
     line = 1;
     column = -1;
     buffer = buffer_create(1024);
+    text_buffer = buffer_create(1024);
 
+    read_stream();
     get_char();
     get_char();
 }
@@ -168,6 +177,7 @@ void lexer_init(char *content_, int size_, FILE *error_stream_)
 void lexer_destroy()
 {
     buffer_free(buffer);
+    buffer_free(text_buffer);
 }
 
 int is_digit(char chr)
@@ -543,6 +553,7 @@ void get_single_string(struct token *token, char quote)
 {
     int i, value;
     get_char();
+    token->type = TOK_STRING_CONST;
     while (cur_char != quote && !is_newline(cur_char)) {
         if (cur_char == '\\') {
             get_char();
@@ -636,13 +647,22 @@ void get_string(struct token *token, char quote)
     }
 }
 
+char *get_token_text()
+{
+    char *text = buffer_data_copy(text_buffer);
+    text[buffer_size(text_buffer) - 1] = 0;
+    return text;
+}
+
 int lexer_next_token(struct token *token)
 {
     skip_ws();
 
+    buffer_reset(text_buffer);
+    buffer_append(text_buffer, cur_char);
+
     token->line = line;
     token->column = column;
-    token->start = offset - 1;
 
     if (is_digit(cur_char)) {
         get_scalar(token);
@@ -669,9 +689,12 @@ int lexer_next_token(struct token *token)
             }
         }
     }
-
-    token->end = offset - 2;
-    return token->type < TOK_EOS;
+    if (token->type == TOK_ERROR || token->type == TOK_EOS) {
+        token->text = NULL;
+        return 0;
+    }
+    token->text = get_token_text();
+    return 1;
 }
 
 extern const char *lexer_token_name(struct token *token)
@@ -713,4 +736,5 @@ extern void lexer_token_free_data(struct token *token)
     case TOK_COMMENT:
         free(token->value.str_val);
     }
+    free(token->text);
 }

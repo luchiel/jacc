@@ -104,8 +104,7 @@ struct token {
 
     int line;
     int column;
-    int start;
-    int end;
+    const char *text;
 
     union {
         int int_val;
@@ -114,7 +113,7 @@ struct token {
     } value;
 };
 
-extern void lexer_init(char *content, int size, FILE *error_stream);
+extern void lexer_init(FILE *stream);
 extern int lexer_next_token(struct token *token);
 extern void lexer_destroy();
 
