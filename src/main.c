@@ -5,6 +5,10 @@
 #include "buffer.h"
 #include "log.h"
 
+char *simple_commands[] = {
+    "lex",
+};
+
 void print_usage()
 {
     printf("USAGE: jacc lex filename\n");
@@ -22,19 +26,13 @@ const char *basename(const char *path)
     return ptr;
 }
 
-int lex(const char *filename)
+int cmd_lex(FILE *file, const char *filename)
 {
     struct token token;
     buffer_t token_value;
-    FILE *file;
 
     token_value = buffer_create(1024);
 
-    file = fopen(filename, "r");
-    if (file == NULL) {
-        fprintf(stderr, "Cannot open file");
-        return EXIT_FAILURE;
-    }
     lexer_init(file);
     log_set_unit(basename(filename));
 
@@ -54,23 +52,54 @@ int lex(const char *filename)
     buffer_free(token_value);
     lexer_destroy();
     log_close();
-    fclose(file);
 
     return EXIT_SUCCESS;
 }
 
+int is_cmd(const char *str)
+{
+    int i;
+    for (i = 0; i < 2; i++) {
+        if (strcmp(simple_commands[i], str) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
+    FILE *file;
+    char *filename;
+    int status;
+
     if (argc < 2) {
         print_usage();
         return EXIT_SUCCESS;
     }
 
-    if (argc == 3 && strcmp(argv[1], "lex") == 0) {
-        return lex(argv[2]);
-    } else {
-        print_usage();
-        return EXIT_SUCCESS;
+    if (is_cmd(argv[1])) {
+        if (argc == 3) {
+            filename = argv[2];
+            file = fopen(filename, "r");
+            if (file == NULL) {
+                fprintf(stderr, "Cannot open file");
+                return EXIT_FAILURE;
+            }
+        } else {
+            filename = ":stdin:";
+            file = stdin;
+        }
+
+        if (argv[1][0] == 'l') {
+            status = cmd_lex(file, filename);
+        }
+
+        if (argc == 3) {
+            fclose(file);
+        }
+        return status;
     }
+    print_usage();
     return EXIT_SUCCESS;
 }
