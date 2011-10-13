@@ -104,7 +104,7 @@ struct token {
 
     int line;
     int column;
-    const char *text;
+    char *text;
 
     union {
         int int_val;
