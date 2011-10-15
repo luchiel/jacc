@@ -284,11 +284,6 @@ static struct node *parse_cond_expr()
 	return node;
 }
 
-static struct node *parse_assign_expr()
-{
-	return parse_cond_expr();
-}
-
 static enum node_type get_node_type()
 {
 	switch (token.type) {
@@ -318,29 +313,20 @@ static enum node_type get_node_type()
 	case TOK_STAR: return NT_MUL;
 	case TOK_DIV_OP: return NT_DIV;
 	case TOK_MOD_OP: return NT_MOD;
+
+	case TOK_ASSIGN: return NT_ASSIGN;
+	case TOK_ADD_ASSIGN: return NT_ADD_ASSIGN;
+	case TOK_SUB_ASSIGN: return NT_SUB_ASSIGN;
+	case TOK_MUL_ASSIGN: return NT_MUL_ASSIGN;
+	case TOK_DIV_ASSIGN: return NT_DIV_ASSIGN;
+	case TOK_MOD_ASSIGN: return NT_MOD_ASSIGN;
+	case TOK_LSHIFT_ASSIGN: return NT_LSHIFT_ASSIGN;
+	case TOK_RSHIFT_ASSIGN: return NT_RSHIFT_ASSIGN;
+	case TOK_BIT_OR_ASSIGN: return NT_OR_ASSIGN;
+	case TOK_BIT_AND_ASSIGN: return NT_AND_ASSIGN;
+	case TOK_BIT_XOR_ASSIGN: return NT_XOR_ASSIGN;
 	}
 	return NT_UNKNOWN;
-}
-
-static struct node *parse_expr_subnode(int level)
-{
-	switch (level) {
-	case 0: /* comma */
-		return parse_assign_expr();
-	case 1: /* or */
-	case 2: /* and */
-	case 3: /* bit or */
-	case 4: /* bit xor */
-	case 5: /* bit and */
-	case 6: /* equality */
-	case 7: /* relational */
-	case 8: /* shift */
-	case 9: /* additive */
-		return parse_expr(level + 1);
-	case 10: /* multiplicative */
-		return parse_cast_expr();
-	}
-	return NULL;
 }
 
 #define CHECK(token_type) { if (token.type == token_type) return 1; }
@@ -379,7 +365,66 @@ static int accept_expr_token(int level)
 		}
 	return 0;
 }
+
+static int accept_assign_expr_token()
+{
+	CHECK(TOK_ASSIGN)
+	CHECK(TOK_ADD_ASSIGN)
+	CHECK(TOK_SUB_ASSIGN)
+	CHECK(TOK_MUL_ASSIGN)
+	CHECK(TOK_DIV_ASSIGN)
+	CHECK(TOK_MOD_ASSIGN)
+	CHECK(TOK_LSHIFT_ASSIGN)
+	CHECK(TOK_RSHIFT_ASSIGN)
+	CHECK(TOK_BIT_OR_ASSIGN)
+	CHECK(TOK_BIT_AND_ASSIGN)
+	CHECK(TOK_BIT_XOR_ASSIGN)
+	return 0;
+}
 #undef CHECK
+
+static struct node *parse_assign_expr()
+{
+	struct node *node = parse_cond_expr();
+	if (!accept_assign_expr_token()) {
+		return node;
+	}
+
+	ALLOC_NODE(binary_node, new_node);
+	new_node->base.type = get_node_type();
+	new_node->base.cat = NC_BINARY;
+	next_token();
+
+	new_node->ops[0] = node;
+	new_node->ops[1] = parse_assign_expr();
+
+	if (new_node->ops[1] == NULL) {
+		parser_free_node((struct node*)new_node);
+		return NULL;
+	}
+	return (struct node*)new_node;
+}
+
+static struct node *parse_expr_subnode(int level)
+{
+	switch (level) {
+	case 0: /* comma */
+		return parse_assign_expr();
+	case 1: /* or */
+	case 2: /* and */
+	case 3: /* bit or */
+	case 4: /* bit xor */
+	case 5: /* bit and */
+	case 6: /* equality */
+	case 7: /* relational */
+	case 8: /* shift */
+	case 9: /* additive */
+		return parse_expr(level + 1);
+	case 10: /* multiplicative */
+		return parse_cast_expr();
+	}
+	return NULL;
+}
 
 static struct node *parse_expr(int level)
 {
