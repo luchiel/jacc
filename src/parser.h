@@ -55,6 +55,7 @@ DEFINE_NODE_TYPE(ternary_node, 3)
 
 DEFINE_NODE_TYPE(return_node, 1)
 DEFINE_NODE_TYPE(while_node, 2)
+DEFINE_NODE_TYPE(list_node, 2)
 
 extern void parser_init();
 extern void parser_destroy();

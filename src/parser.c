@@ -446,6 +446,22 @@ static struct node *parse_stmt()
 		CONSUME(TOK_SEMICOLON)
 		return (struct node*)while_node;
 	}
+	case TOK_LBRACE:
+	{
+		CONSUME(TOK_LBRACE)
+		if (accept(TOK_RBRACE)) {
+			return parse_nop();
+		}
+		struct node *node;
+		PARSE(node, stmt)
+		while (!accept(TOK_RBRACE)) {
+			ALLOC_NODE_EX(list_node, list_node, NT_LIST)
+			list_node->ops[0] = node;
+			PARSE(list_node->ops[1], stmt)
+			node = (struct node*)list_node;
+		}
+		return node;
+	}
 	default:
 	{
 		if (accept(TOK_SEMICOLON)) {
