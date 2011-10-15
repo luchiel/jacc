@@ -8,7 +8,7 @@
  	};
 
 enum node_type {
-#define NODE(name, str) NT_##name,
+#define NODE(name, str, cat, op_cnt) NT_##name,
 #include "nodes.def"
 #undef NODE
 };
@@ -23,9 +23,14 @@ enum node_category {
 	NC_UNKNOWN,
 };
 
+struct node_info {
+	const char *repr;
+	enum node_category cat;
+	int op_count;
+};
+
 struct node {
 	enum node_type type;
-	enum node_category cat;
 	struct node *ops[0];
 };
 
@@ -57,8 +62,6 @@ extern struct node *parser_parse_expr();
 extern struct node *parser_parse_statement();
 
 extern void parser_free_node(struct node *node);
-extern enum node_category parser_node_category(struct node *node);
-extern int parser_subnodes_count(struct node *node);
-extern const char *parser_node_name(struct node *node);
+extern struct node_info *parser_node_info(struct node *node);
 
 #endif

@@ -9,8 +9,8 @@
 
 struct token token;
 
-const char* node_names[] = {
-#define NODE(name, str) str,
+struct node_info nodes_info[] = {
+#define NODE(name, repr, cat, op_cnt) {repr, cat, op_cnt},
 #include "nodes.def"
 #undef NODE
 };
@@ -53,7 +53,6 @@ static struct node *parse_ident()
 	ALLOC_NODE(string_node, node);
 	EXPECT(TOK_IDENT);
 	node->base.type = NT_IDENT;
-	node->base.cat = NC_ATOM;
 	node->value = token.value.str_val;
 	token.value.str_val = NULL;
 	next_token();
@@ -77,7 +76,6 @@ static struct node *parse_primary_expr()
 		{
 			ALLOC_NODE(string_node, node);
 			node->base.type = NT_STRING;
-			node->base.cat = NC_ATOM;
 			node->value = token.value.str_val;
 			token.value.str_val = NULL;
 			next_token();
@@ -89,7 +87,6 @@ static struct node *parse_primary_expr()
 		{
 			ALLOC_NODE(int_node, node);
 			node->base.type = NT_INT;
-			node->base.cat = NC_ATOM;
 			node->value = token.value.int_val;
 			next_token();
 			return (struct node*)node;
@@ -98,7 +95,6 @@ static struct node *parse_primary_expr()
 		{
 			ALLOC_NODE(double_node, node);
 			node->base.type = NT_DOUBLE;
-			node->base.cat = NC_ATOM;
 			node->value = token.value.float_val;
 			next_token();
 			return (struct node*)node;
@@ -124,7 +120,6 @@ static struct node *nop()
 {
 	ALLOC_NODE(node, node);
 	node->type = NT_NOP;
-	node->cat = NC_ATOM;
 	return node;
 }
 
@@ -142,7 +137,6 @@ static struct node *parse_postfix_expr()
 				} else {
 					unode->base.type = NT_POSTFIX_DEC;
 				}
-				unode->base.cat = NC_UNARY;
 				unode->ops[0] = node;
 				node = (struct node*)unode;
 				next_token();
@@ -155,7 +149,6 @@ static struct node *parse_postfix_expr()
 			{
 				ALLOC_NODE(unary_node, unode);
 				unode->base.type = get_postfix_node_type();
-				unode->base.cat = NC_BINARY;
 				unode->ops[0] = node;
 				next_token();
 
@@ -226,7 +219,6 @@ static struct node *parse_unary_expr()
 	{
 		ALLOC_NODE(unary_node, node);
 		node->base.type = get_unary_node_type();
-		node->base.cat = NC_UNARY;
 		next_token();
 		switch (node->base.type) {
 		case NT_PREFIX_INC:
@@ -265,7 +257,6 @@ static struct node *parse_cond_expr()
 		}
 		ALLOC_NODE(ternary_node, new_node);
 		new_node->base.type = NT_TERNARY;
-		new_node->base.cat = NC_TERNARY;
 		new_node->ops[0] = node;
 		new_node->ops[1] = parse_expr(0);
 		if (new_node->ops[1] == NULL) {
@@ -392,7 +383,6 @@ static struct node *parse_assign_expr()
 
 	ALLOC_NODE(binary_node, new_node);
 	new_node->base.type = get_node_type();
-	new_node->base.cat = NC_BINARY;
 	next_token();
 
 	new_node->ops[0] = node;
@@ -440,7 +430,6 @@ static struct node *parse_expr(int level)
 		}
 		ALLOC_NODE(binary_node, new_node);
 		new_node->base.type = get_node_type();
-		new_node->base.cat = NC_BINARY;
 		next_token();
 		new_node->ops[0] = node;
 		new_node->ops[1] = parse_expr_subnode(level);
@@ -463,7 +452,6 @@ static struct node *parse_stmt()
 	{
 		ALLOC_NODE(return_node, ret_node);
 		ret_node->base.type = NT_RETURN;
-		ret_node->base.cat = NC_STATEMENT;
 		next_token();
 		if (token.type == TOK_SEMICOLON) {
 			ret_node->ops[0] = nop();
@@ -514,21 +502,6 @@ extern struct node *parser_parse_statement()
 	return node;
 }
 
-extern int parser_subnodes_count(struct node *node)
-{
-	switch (node->cat)
-	{
-	case NC_TERNARY: return 3;
-	case NC_BINARY: return 2;
-	case NC_UNARY: return 1;
-	}
-
-	switch (node->type) {
-	case NT_RETURN: return 1;
-	}
-	return 0;
-}
-
 extern void parser_free_node(struct node *node)
 {
 	int i;
@@ -536,24 +509,21 @@ extern void parser_free_node(struct node *node)
 		return;
 	}
 
-	for (i = 0; i < parser_subnodes_count(node); i++) {
+	for (i = 0; i < parser_node_info(node)->op_count; i++) {
 		parser_free_node(node->ops[i]);
 	}
 
-	switch (node->cat)
+	switch (node->type)
 	{
-	case NC_ATOM:
-		switch (node->type) {
-		case NT_STRING:
-		case NT_IDENT:
-			free(((struct string_node*)node)->value);
-		}
+	case NT_STRING:
+	case NT_IDENT:
+		free(((struct string_node*)node)->value);
 		break;
 	}
 	free(node);
 }
 
-extern const char *parser_node_name(struct node *node)
+extern struct node_info *parser_node_info(struct node *node)
 {
-	return node_names[node->type];
+	return &nodes_info[node->type];
 }
