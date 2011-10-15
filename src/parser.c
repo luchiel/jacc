@@ -492,6 +492,13 @@ static struct node *parse_stmt()
 		ALLOC_NODE_EX(node, break_node, NT_BREAK)
 		return break_node;
 	}
+	case TOK_CONTINUE:
+	{
+		CONSUME(TOK_CONTINUE)
+		CONSUME(TOK_SEMICOLON)
+		ALLOC_NODE_EX(node, continue_node, NT_CONTINUE)
+		return continue_node;
+	}
 	default:
 	{
 		if (accept(TOK_SEMICOLON)) {

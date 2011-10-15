@@ -1,0 +1,1 @@
+bad_continue_2.in:1:10: error: unexpected token INT_CONST, expected SEMICOLON
