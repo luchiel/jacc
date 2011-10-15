@@ -134,11 +134,6 @@ static int is_whitespace(char chr)
         || chr == ' ';
 }
 
-static int is_exp(char chr)
-{
-    return chr == 'e' || chr == 'E';
-}
-
 static void skip_ws()
 {
     while (is_whitespace(cur_char)) {
