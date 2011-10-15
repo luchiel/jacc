@@ -36,13 +36,13 @@ char *keywords[] = {
 #define KEYWORDS_COUNT (TOK_WHILE - TOK_BREAK + 1)
 #define KEYWORDS_START TOK_BREAK
 
-void read_stream()
+static void read_stream()
 {
     stream_buffer_size = fread(stream_buffer, 1, sizeof(stream_buffer), stream);
     stream_buffer_pos = 0;
 }
 
-void get_char()
+static void get_char()
 {
     cur_char = next_char;
     buffer_append(text_buffer, cur_char);
@@ -58,7 +58,7 @@ void get_char()
     }
 }
 
-void lexer_init(FILE *stream_)
+extern void lexer_init(FILE *stream_)
 {
     stream = stream_;
     line = 1;
@@ -71,30 +71,30 @@ void lexer_init(FILE *stream_)
     get_char();
 }
 
-void lexer_destroy()
+extern void lexer_destroy()
 {
     buffer_free(buffer);
     buffer_free(text_buffer);
 }
 
-int is_digit(char chr)
+static int is_digit(char chr)
 {
     return chr >= '0' && chr <= '9';
 }
 
-int is_octdigit(char chr)
+static int is_octdigit(char chr)
 {
     return chr >= '0' && chr <= '7';
 }
 
-int is_hexdigit(char chr)
+static int is_hexdigit(char chr)
 {
     return is_digit(chr)
         || (chr >= 'a' && chr <= 'f')
         || (chr >= 'A' && chr <= 'F');
 }
 
-int is_digit_ex(char chr, int base)
+static int is_digit_ex(char chr, int base)
 {
     if (base == 10) {
         return is_digit(chr);
@@ -106,40 +106,40 @@ int is_digit_ex(char chr, int base)
     return 0;
 }
 
-int is_alpha(char chr)
+static int is_alpha(char chr)
 {
     return (chr >= 'a' && chr <= 'z')
         || (chr >= 'A' && chr <= 'Z');
 }
 
-int is_ident_start(char chr)
+static int is_ident_start(char chr)
 {
     return is_alpha(chr) || chr == '_';
 }
 
-int is_ident(char chr)
+static int is_ident(char chr)
 {
     return is_ident_start(chr) || is_digit(chr);
 }
 
-int is_newline(char chr)
+static int is_newline(char chr)
 {
     return chr == '\n' || chr == '\r';
 }
 
-int is_whitespace(char chr)
+static int is_whitespace(char chr)
 {
     return is_newline(chr)
         || chr == '\t' || chr == '\v'
         || chr == ' ';
 }
 
-int is_exp(char chr)
+static int is_exp(char chr)
 {
     return chr == 'e' || chr == 'E';
 }
 
-void skip_ws()
+static void skip_ws()
 {
     while (is_whitespace(cur_char)) {
         if (cur_char == '\n') {
@@ -150,7 +150,7 @@ void skip_ws()
     }
 }
 
-int digit_value(char c)
+static int digit_value(char c)
 {
     if (c >= 'a' && c <= 'f') {
         return c - 'a' + 0xA;
@@ -160,14 +160,14 @@ int digit_value(char c)
     return c - '0';
 }
 
-void lexer_error(struct token *token, const char *message)
+static void lexer_error(struct token *token, const char *message)
 {
     token->type = TOK_ERROR;
     log_set_pos(token->line, token->column);
     log_error(message);
 }
 
-void read_dec_number(struct token *token, const char *error_msg)
+static void read_dec_number(struct token *token, const char *error_msg)
 {
     if (!is_digit(cur_char)) {
         lexer_error(token, error_msg);
@@ -180,7 +180,7 @@ void read_dec_number(struct token *token, const char *error_msg)
     }
 }
 
-void get_float_part(struct token *token)
+static void get_float_part(struct token *token)
 {
     /* we have integer part in the buffer */
     if (cur_char == '.') {
@@ -211,7 +211,7 @@ void get_float_part(struct token *token)
     sscanf(buffer_data(buffer), "%lf", &token->value.float_val);
 }
 
-void get_scalar(struct token *token)
+static void get_scalar(struct token *token)
 {
     int result = 0, base = 10;
 
@@ -263,7 +263,7 @@ void get_scalar(struct token *token)
     token->value.int_val = result;
 }
 
-enum token_type get_ident_type(const char *ident)
+static enum token_type get_ident_type(const char *ident)
 {
     /* TODO use hash table instead? */
     int i;
@@ -275,7 +275,7 @@ enum token_type get_ident_type(const char *ident)
     return TOK_IDENT;
 }
 
-void get_ident(struct token *token)
+static void get_ident(struct token *token)
 {
     buffer_reset(buffer);
     do {
@@ -291,13 +291,13 @@ void get_ident(struct token *token)
     }
 }
 
-enum token_type get_1way_punctuator(enum token_type type)
+static enum token_type get_1way_punctuator(enum token_type type)
 {
     get_char();
     return type;
 }
 
-enum token_type get_2way_punctuator(enum token_type t1,
+static enum token_type get_2way_punctuator(enum token_type t1,
         enum token_type t2)
 {
     if (next_char == '=') {
@@ -307,7 +307,7 @@ enum token_type get_2way_punctuator(enum token_type t1,
     return get_1way_punctuator(t1);
 }
 
-enum token_type get_3way_punctuator(enum token_type t1,
+static enum token_type get_3way_punctuator(enum token_type t1,
         enum token_type t2, enum token_type t3)
 {
     if (next_char == cur_char) {
@@ -317,7 +317,7 @@ enum token_type get_3way_punctuator(enum token_type t1,
     return get_2way_punctuator(t1, t2);
 }
 
-enum token_type get_punctuator_type()
+static enum token_type get_punctuator_type()
 {
     switch (cur_char) {
         case '(': return get_1way_punctuator(TOK_LPAREN);
@@ -393,7 +393,7 @@ enum token_type get_punctuator_type()
     return TOK_ERROR;
 }
 
-void get_line_comment(struct token *token)
+static void get_line_comment(struct token *token)
 {
     get_char();
     get_char();
@@ -408,7 +408,7 @@ void get_line_comment(struct token *token)
     token->value.str_val = buffer_data_copy(buffer);
 }
 
-void get_multiline_comment(struct token *token)
+static void get_multiline_comment(struct token *token)
 {
     get_char();
     get_char();
@@ -434,7 +434,7 @@ void get_multiline_comment(struct token *token)
     token->value.str_val = buffer_data_copy(buffer);
 }
 
-void get_single_string(struct token *token, char quote)
+static void get_single_string(struct token *token, char quote)
 {
     int i, value;
     get_char();
@@ -504,7 +504,7 @@ void get_single_string(struct token *token, char quote)
     get_char();
 }
 
-void get_string(struct token *token, char quote)
+static void get_string(struct token *token, char quote)
 {
     buffer_reset(buffer);
     while (cur_char == quote) {
@@ -532,14 +532,14 @@ void get_string(struct token *token, char quote)
     }
 }
 
-char *get_token_text()
+static char *get_token_text()
 {
     char *text = buffer_data_copy(text_buffer);
     text[buffer_size(text_buffer) - 1] = 0;
     return text;
 }
 
-int lexer_next_token(struct token *token)
+extern int lexer_next_token(struct token *token)
 {
     skip_ws();
 
