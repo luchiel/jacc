@@ -10,62 +10,9 @@
 struct token token;
 
 const char* node_names[] = {
-	/* unary */
-	"&",
-	"*",
-	"+",
-	"-",
-	"~",
-	"!",
-
-	"++@",
-	"--@",
-	"@++",
-	"@--",
-
-	/* binary */
-	",",
-
-	"||",
-	"&&",
-
-	"|",
-	"^",
-	"&",
-
-	"==",
-	"!=",
-
-	"<",
-	"<=",
-	">",
-	">=",
-
-	"<<",
-	">>",
-
-	"+",
-	"-",
-
-	"*",
-	"/",
-	"%",
-
-	"[]",
-	".",
-	"->",
-	"call",
-
-	/* other */
-	"?:",
-
-	"int",
-	"double",
-	"string",
-	"ident",
-
-	"nop",
-	"???",
+#define NODE(name, str) str,
+#include "nodes.def"
+#undef NODE
 };
 
 static struct node *parse_expr(int level);

@@ -16,7 +16,6 @@ char next_char;
 
 int line, column;
 
-/* Keep in sync with lexer.h token_type_t */
 const char* token_names[] = {
 #define TOKEN(name) #name,
 #define KEYWORD(name, str) TOKEN(name)

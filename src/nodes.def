@@ -1,0 +1,53 @@
+NODE(REFERENCE, "&")
+NODE(DEREFERENCE, "*")
+NODE(IDENTITY, "+")
+NODE(NEGATION, "-")
+NODE(COMPLEMENT, "~")
+NODE(LOGICAL_NEGATION, "!")
+
+NODE(PREFIX_INC, "++@")
+NODE(PREFIX_DEC, "--@")
+NODE(POSTFIX_INC, "@++")
+NODE(POSTFIX_DEC, "@--")
+
+NODE(COMMA, ",")
+
+NODE(OR, "||")
+NODE(AND, "&&")
+
+NODE(BIT_OR, "|")
+NODE(BIT_XOR, "^")
+NODE(BIT_AND, "&")
+
+NODE(EQ, "==")
+NODE(NE, "!=")
+
+NODE(LT, "<")
+NODE(LE, "<=")
+NODE(GT, ">")
+NODE(GE, ">=")
+
+NODE(LSHIFT, "<<")
+NODE(RSHIFT, ">>")
+
+NODE(ADD, "+")
+NODE(SUB, "-")
+
+NODE(MUL, "*")
+NODE(DIV, "/")
+NODE(MOD, "%")
+
+NODE(SUBSCRIPT, "[]")
+NODE(MEMBER, ".")
+NODE(MEMBER_BY_PTR, "->")
+NODE(CALL, "call")
+
+NODE(TERNARY, "?:")
+
+NODE(INT, "int")
+NODE(DOUBLE, "double")
+NODE(STRING, "string")
+NODE(IDENT, "ident")
+
+NODE(NOP, "nop")
+NODE(UNKNOWN, "???")

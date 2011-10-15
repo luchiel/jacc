@@ -2,62 +2,9 @@
 #define JACC_PARSER_H
 
 enum node_type {
-	/* unary */
-	NT_REFERENCE,
-	NT_DEREFERENCE,
-	NT_IDENTITY,
-	NT_NEGATION,
-	NT_COMPLEMENT,
-	NT_LOGICAL_NEGATION,
-
-	NT_PREFIX_INC,
-	NT_PREFIX_DEC,
-	NT_POSTFIX_INC,
-	NT_POSTFIX_DEC,
-
-	/* binary */
-	NT_COMMA,
-
-	NT_OR,
-	NT_AND,
-
-	NT_BIT_OR,
-	NT_BIT_XOR,
-	NT_BIT_AND,
-
-	NT_EQ,
-	NT_NE,
-
-	NT_LT,
-	NT_LE,
-	NT_GT,
-	NT_GE,
-
-	NT_LSHIFT,
-	NT_RSHIFT,
-
-	NT_ADD,
-	NT_SUB,
-
-	NT_MUL,
-	NT_DIV,
-	NT_MOD,
-
-	NT_SUBSCRIPT,
-	NT_MEMBER,
-	NT_MEMBER_BY_PTR,
-	NT_CALL,
-
-	/* other */
-	NT_TERNARY,
-
-	NT_INT,
-	NT_DOUBLE,
-	NT_STRING,
-	NT_IDENT,
-
-	NT_NOP,
-	NT_UNKNOWN,
+#define NODE(name, str) NT_##name,
+#include "nodes.def"
+#undef NODE
 };
 
 enum node_category {
