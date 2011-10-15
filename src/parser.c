@@ -425,8 +425,15 @@ static struct node *parse_stmt()
 		return (struct node*)ret_node;
 	}
 	default:
+	{
+		if (accept(TOK_SEMICOLON)) {
+			return parse_nop();
+		}
+		struct node *node;
+		PARSE(node, expr, 0)
 		CONSUME(TOK_SEMICOLON);
-		return parse_nop();
+		return node;
+	}
 	}
 }
 
