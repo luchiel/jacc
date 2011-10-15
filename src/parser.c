@@ -424,6 +424,28 @@ static struct node *parse_stmt()
 		CONSUME(TOK_SEMICOLON);
 		return (struct node*)ret_node;
 	}
+	case TOK_WHILE:
+	{
+		CONSUME(TOK_WHILE)
+		CONSUME(TOK_LPAREN)
+		ALLOC_NODE_EX(while_node, while_node, NT_WHILE)
+		PARSE(while_node->ops[0], expr, 0)
+		CONSUME(TOK_RPAREN)
+		PARSE(while_node->ops[1], stmt)
+		return (struct node*)while_node;
+	}
+	case TOK_DO:
+	{
+		CONSUME(TOK_DO)
+		ALLOC_NODE_EX(while_node, while_node, NT_DO_WHILE)
+		PARSE(while_node->ops[0], stmt)
+		CONSUME(TOK_WHILE)
+		CONSUME(TOK_LPAREN)
+		PARSE(while_node->ops[1], expr, 0)
+		CONSUME(TOK_RPAREN)
+		CONSUME(TOK_SEMICOLON)
+		return (struct node*)while_node;
+	}
 	default:
 	{
 		if (accept(TOK_SEMICOLON)) {

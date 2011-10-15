@@ -63,5 +63,7 @@ NODE(IDENT, "ident", NC_ATOM, 0)
 NODE(NOP, "nop", NC_ATOM, 0)
 
 NODE(RETURN, "return", NC_STATEMENT, 1)
+NODE(WHILE, "while", NC_STATEMENT, 2)
+NODE(DO_WHILE, "do while", NC_STATEMENT, 2)
 
 NODE(UNKNOWN, "???", NC_UNKNOWN, 0)
