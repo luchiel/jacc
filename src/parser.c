@@ -409,6 +409,18 @@ static struct node *parse_expr(int level)
 	return node;
 }
 
+static struct node *parse_opt_expr_with(enum token_type type)
+{
+	struct node *node;
+	if (accept(type)) {
+		PARSE(node, nop)
+	} else {
+		PARSE(node, expr, 0)
+		CONSUME(type)
+	}
+	return node;
+}
+
 static struct node *parse_stmt()
 {
 	switch (token.type) {
@@ -445,6 +457,17 @@ static struct node *parse_stmt()
 		CONSUME(TOK_RPAREN)
 		CONSUME(TOK_SEMICOLON)
 		return (struct node*)while_node;
+	}
+	case TOK_FOR:
+	{
+		CONSUME(TOK_FOR)
+		ALLOC_NODE_EX(for_node, for_node, NT_FOR)
+		CONSUME(TOK_LPAREN)
+		PARSE(for_node->ops[0], opt_expr_with, TOK_SEMICOLON)
+		PARSE(for_node->ops[1], opt_expr_with, TOK_SEMICOLON)
+		PARSE(for_node->ops[2], opt_expr_with, TOK_RPAREN)
+		PARSE(for_node->ops[3], stmt)
+		return (struct node*)for_node;
 	}
 	case TOK_LBRACE:
 	{
