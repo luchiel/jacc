@@ -126,7 +126,10 @@ void print_node(struct node *node, int level)
                 printf("\"%s\"", ((struct string_node*)node)->value);
                 break;
             case NT_IDENT:
-                printf("%s", ((struct string_node*)node)->value);
+                printf("ident %s", ((struct string_node*)node)->value);
+                break;
+            case NT_NOP:
+                printf("nop");
                 break;
         }
         printf(")\n");

@@ -56,6 +56,7 @@ enum node_type {
 	NT_STRING,
 	NT_IDENT,
 
+	NT_NOP,
 	NT_UNKNOWN,
 };
 

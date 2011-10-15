@@ -64,6 +64,7 @@ const char* node_names[] = {
 	"string",
 	"ident",
 
+	"nop",
 	"???",
 };
 
@@ -146,7 +147,7 @@ static struct node *parse_primary_expr()
 			ALLOC_NODE(double_node, node);
 			node->base.type = NT_DOUBLE;
 			node->base.cat = NC_ATOM;
-			node->value = token.value.int_val;
+			node->value = token.value.float_val;
 			next_token();
 			return (struct node*)node;
 		}
@@ -167,6 +168,14 @@ static enum node_type get_postfix_node_type()
 	return NT_UNKNOWN;
 }
 
+static struct node *nop()
+{
+	ALLOC_NODE(node, node);
+	node->type = NT_NOP;
+	node->cat = NC_ATOM;
+	return node;
+}
+
 static struct node *parse_postfix_expr()
 {
 	struct node *node = parse_primary_expr();
@@ -185,6 +194,7 @@ static struct node *parse_postfix_expr()
 				unode->ops[0] = node;
 				node = (struct node*)unode;
 				next_token();
+				break;
 			}
 			case TOK_DOT:
 			case TOK_REF_OP:
@@ -199,8 +209,14 @@ static struct node *parse_postfix_expr()
 
 				switch (unode->base.type) {
 				case NT_SUBSCRIPT:
-				case NT_CALL: /* TODO should be parse_arg_list */
 					unode->ops[1] = parse_expr(0);
+					break;
+				case NT_CALL: /* TODO should be parse_arg_list */
+					if (token.type != TOK_RPAREN) {
+						unode->ops[1] = parse_expr(0);
+					} else {
+						unode->ops[1] = nop();
+					}
 					break;
 				case NT_MEMBER:
 				case NT_MEMBER_BY_PTR:
@@ -209,7 +225,7 @@ static struct node *parse_postfix_expr()
 				}
 
 				if (unode->ops[1] == NULL) {
-					parser_free_node(unode);
+					parser_free_node((struct node*)unode);
 					return NULL;
 				}
 
@@ -220,6 +236,7 @@ static struct node *parse_postfix_expr()
 				}
 
 				node = (struct node*)unode;
+				break;
 			}
 			default:
 				return node;
