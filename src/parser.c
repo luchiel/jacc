@@ -11,7 +11,7 @@
 #define ALLOC_NODE_EX(node_type, var_name, enum_type) \
 	ALLOC_NODE(node_type, var_name) \
 	((struct node*)(var_name))->type = (enum_type);
-#define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(#token_type + 4); return NULL; } }
+#define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
 #define CONSUME(token_type) { EXPECT(token_type); next_token(); }
 
 #define PARSE_CHECK(expr) if ((expr) == NULL) return NULL;
@@ -50,10 +50,10 @@ static void unexpected_token(const char *string)
 {
 	char buf[255];
 	if (string[0] == 0) {
-		sprintf(buf, "unexpected token %s", lexer_token_name(&token));
+		sprintf(buf, "unexpected token %s", lexer_token_type_name(token.type));
 	} else {
 		sprintf(buf, "unexpected token %s, expected %s",
-		lexer_token_name(&token), string);
+		lexer_token_type_name(token.type), string);
 	}
 	log_set_pos(token.line, token.column);
 	log_error(buf);

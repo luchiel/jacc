@@ -577,12 +577,12 @@ extern int lexer_next_token(struct token *token)
     return 1;
 }
 
-extern const char *lexer_token_name(struct token *token)
+extern const char *lexer_token_type_name(enum token_type type)
 {
-    if (token->type > TOK_EOS) {
+    if (type > TOK_EOS) {
         return "UNKNOWN";
     }
-    return token_names[token->type];
+    return token_names[type];
 }
 
 extern void lexer_token_value(struct token *token, buffer_t buffer)

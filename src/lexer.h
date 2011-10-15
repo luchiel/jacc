@@ -31,7 +31,7 @@ extern void lexer_init(FILE *stream);
 extern int lexer_next_token(struct token *token);
 extern void lexer_destroy();
 
-extern const char *lexer_token_name(struct token *token);
+extern const char *lexer_token_type_name(enum token_type type);
 extern void lexer_token_value(struct token *token, buffer_t buffer);
 extern void lexer_token_free_data(struct token *token);
 

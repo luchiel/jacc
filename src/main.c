@@ -49,7 +49,7 @@ int cmd_lex(FILE *file, const char *filename)
         lexer_token_value(&token, token_value);
 
         printf("%d:%d\t%s\t%s\t%s\n", token.line, token.column, token.text,
-            buffer_data(token_value), lexer_token_name(&token));
+            buffer_data(token_value), lexer_token_type_name(token.type));
         fflush(stdout);
 
         lexer_token_free_data(&token);
