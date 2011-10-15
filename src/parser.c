@@ -469,6 +469,21 @@ static struct node *parse_stmt()
 		PARSE(for_node->ops[3], stmt)
 		return (struct node*)for_node;
 	}
+	case TOK_IF:
+	{
+		ALLOC_NODE_EX(if_node, if_node, NT_IF)
+		CONSUME(TOK_IF)
+		CONSUME(TOK_LPAREN)
+		PARSE(if_node->ops[0], expr, 0)
+		CONSUME(TOK_RPAREN)
+		PARSE(if_node->ops[1], stmt)
+		if (accept(TOK_ELSE)) {
+			PARSE(if_node->ops[2], stmt)
+		} else {
+			PARSE(if_node->ops[2], nop)
+		}
+		return (struct node*)if_node;
+	}
 	case TOK_LBRACE:
 	{
 		CONSUME(TOK_LBRACE)
