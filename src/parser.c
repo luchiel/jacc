@@ -485,6 +485,13 @@ static struct node *parse_stmt()
 		}
 		return node;
 	}
+	case TOK_BREAK:
+	{
+		CONSUME(TOK_BREAK)
+		CONSUME(TOK_SEMICOLON)
+		ALLOC_NODE_EX(node, break_node, NT_BREAK)
+		return break_node;
+	}
 	default:
 	{
 		if (accept(TOK_SEMICOLON)) {
