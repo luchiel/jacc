@@ -358,13 +358,7 @@ enum token_type get_punctuator_type()
         case '<':
             if (next_char == '<') {
                 get_char();
-                if (next_char == '=') {
-                    get_char();
-                    return get_1way_punctuator(TOK_LSHIFT_ASSIGN);
-                } else {
-                    return get_1way_punctuator(TOK_LSHIFT_OP);
-                }
-                return get_1way_punctuator(TOK_LE_OP);
+                return get_2way_punctuator(TOK_LSHIFT_OP, TOK_LSHIFT_ASSIGN);
             } else if (next_char == ':') {
                 get_char();
                 return get_1way_punctuator(TOK_LBRACKET);
@@ -376,13 +370,7 @@ enum token_type get_punctuator_type()
         case '>':
             if (next_char == '>') {
                 get_char();
-                if (next_char == '=') {
-                    get_char();
-                    return get_1way_punctuator(TOK_RSHIFT_ASSIGN);
-                } else {
-                    return get_1way_punctuator(TOK_RSHIFT_OP);
-                }
-                return get_1way_punctuator(TOK_GE_OP);
+                return get_2way_punctuator(TOK_RSHIFT_OP, TOK_RSHIFT_ASSIGN);
             }
             return get_2way_punctuator(TOK_GT_OP, TOK_GE_OP);
         case '-':
