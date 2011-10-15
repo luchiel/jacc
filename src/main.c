@@ -6,6 +6,8 @@
 #include "buffer.h"
 #include "log.h"
 
+int show_indents[255];
+
 char *simple_commands[] = {
     "lex",
     "parse_expr",
@@ -60,8 +62,13 @@ int cmd_lex(FILE *file, const char *filename)
 
 void print_indent(int level)
 {
-    while (level--) {
-        printf(" | ");
+    int i;
+    for (i = 0; i < level; i++) {
+        if (show_indents[i + 1]) {
+            printf(" | ");
+        } else {
+            printf("   ");
+        }
     }
 }
 
@@ -75,10 +82,13 @@ void print_node_indent(int level)
 
 void print_node(struct node *node, int level);
 
-void print_branch(struct node *node, int level)
+void print_branch(struct node *node, int level, int last)
 {
     print_indent(level + 1);
     printf("\n");
+    if (last) {
+        show_indents[level + 1] = 0;
+    }
     print_node(node, level + 1);
 }
 
@@ -86,6 +96,8 @@ void print_node(struct node *node, int level)
 {
     const char *node_name = parser_node_name(node);
     int node_count = 0, i;
+    show_indents[level + 1] = 1;
+
     print_node_indent(level);
     switch (node->cat) {
     case NC_TERNARY:
@@ -122,7 +134,7 @@ void print_node(struct node *node, int level)
     }
 
     for (i = 0; i < node_count; i++) {
-        print_branch(node->ops[i], level);
+        print_branch(node->ops[i], level, i == node_count - 1);
     }
 }
 
