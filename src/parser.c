@@ -90,7 +90,12 @@ static int accept(enum token_type type)
 static void unexpected_token(const char *string)
 {
 	char buf[255];
-	sprintf(buf, "Unexpected token %s. Expected %s", lexer_token_name(&token), string);
+	if (string[0] == 0) {
+		sprintf(buf, "unexpected token %s", lexer_token_name(&token));
+	} else {
+		sprintf(buf, "unexpected token %s, expected %s",
+		lexer_token_name(&token), string);
+	}
 	log_set_pos(token.line, token.column);
 	log_error(buf);
 	string = string;
@@ -152,7 +157,7 @@ static struct node *parse_primary_expr()
 			return (struct node*)node;
 		}
 		default:
-			unexpected_token("one of: STRING_CONST, INT_CONST, FLOAT_CONST, IDENT");
+			unexpected_token("");
 			return NULL;
 	}
 }
