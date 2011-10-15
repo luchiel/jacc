@@ -61,5 +61,7 @@ NODE(DOUBLE, "double")
 NODE(STRING, "string")
 NODE(IDENT, "ident")
 
+NODE(RETURN, "return")
+
 NODE(NOP, "nop")
 NODE(UNKNOWN, "???")

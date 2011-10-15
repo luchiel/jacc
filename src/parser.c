@@ -455,6 +455,36 @@ static struct node *parse_expr(int level)
 	return node;
 }
 
+static struct node *parse_stmt()
+{
+	struct node *node;
+	switch (token.type) {
+	case TOK_RETURN:
+	{
+		ALLOC_NODE(return_node, ret_node);
+		ret_node->base.type = NT_RETURN;
+		ret_node->base.cat = NC_STATEMENT;
+		next_token();
+		if (token.type == TOK_SEMICOLON) {
+			ret_node->ops[0] = nop();
+		} else {
+			ret_node->ops[0] = parse_expr(0);
+			if (ret_node->ops[0] == NULL) {
+				parser_free_node((struct node*)ret_node);
+				return NULL;
+			}
+		}
+		node = (struct node*)ret_node;
+		break;
+	}
+	default:
+		EXPECT(TOK_SEMICOLON);
+		node = nop();
+	}
+	CONSUME(TOK_SEMICOLON);
+	return node;
+}
+
 extern void parser_init()
 {
 	token.type = TOK_ERROR;
@@ -475,6 +505,15 @@ extern struct node *parser_parse_expr()
 	return node;
 }
 
+extern struct node *parser_parse_statement()
+{
+	struct node *node = parse_stmt(0);
+	if (node != NULL) {
+		EXPECT(TOK_EOS);
+	}
+	return node;
+}
+
 extern int parser_subnodes_count(struct node *node)
 {
 	switch (node->cat)
@@ -482,6 +521,10 @@ extern int parser_subnodes_count(struct node *node)
 	case NC_TERNARY: return 3;
 	case NC_BINARY: return 2;
 	case NC_UNARY: return 1;
+	}
+
+	switch (node->type) {
+	case NT_RETURN: return 1;
 	}
 	return 0;
 }

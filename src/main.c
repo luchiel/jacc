@@ -11,6 +11,7 @@ int show_indents[255];
 char *simple_commands[] = {
     "lex",
     "parse_expr",
+    "parse_stmt",
 };
 
 void print_usage()
@@ -130,6 +131,9 @@ void print_node(struct node *node, int level)
         }
         printf(")\n");
         break;
+    case NC_STATEMENT:
+        printf("(%s)\n", parser_node_name(node));
+        break;
     }
 
     node_count = parser_subnodes_count(node);
@@ -138,14 +142,20 @@ void print_node(struct node *node, int level)
     }
 }
 
-int cmd_parse_expr(FILE *file, const char *filename)
+int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
 {
     log_set_unit(basename(filename));
 
     lexer_init(file);
     parser_init();
 
-    struct node* node = parser_parse_expr();
+    struct node* node;
+
+    if (strcmp(cmd, "parse_expr") == 0) {
+        node = parser_parse_expr();
+    } else if (strcmp(cmd, "parse_stmt") == 0) {
+        node = parser_parse_statement();
+    }
 
     if (node != NULL) {
         print_node(node, 0);
@@ -161,7 +171,7 @@ int cmd_parse_expr(FILE *file, const char *filename)
 int is_cmd(const char *str)
 {
     int i;
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < sizeof(simple_commands) / sizeof(char*); i++) {
         if (strcmp(simple_commands[i], str) == 0) {
             return 1;
         }
@@ -196,7 +206,7 @@ int main(int argc, char** argv)
         if (argv[1][0] == 'l') {
             status = cmd_lex(file, filename);
         } else {
-            status = cmd_parse_expr(file, filename);
+            status = cmd_parse_expr(file, filename, argv[1]);
         }
 
         if (argc == 3) {
