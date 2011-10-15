@@ -1,11 +1,7 @@
 #ifndef JACC_BUFFER_H
 #define JACC_BUFFER_H
 
-typedef struct buffer_tag {
-	char *buf;
-	int used;
-	int size;
-} *buffer_t;
+typedef struct buffer_data *buffer_t;
 
 extern buffer_t buffer_create(int initial_size);
 extern void buffer_ensure_capacity(buffer_t buffer, int capacity);

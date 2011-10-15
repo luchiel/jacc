@@ -1,27 +1,27 @@
 #include <stdlib.h>
 #include <string.h>
+#include "memory.h"
 #include "buffer.h"
+
+struct buffer_data {
+	char *buf;
+	int used;
+	int size;
+};
 
 extern buffer_t buffer_create(int initial_size)
 {
-	buffer_t buffer = (buffer_t)malloc(sizeof(struct buffer_tag));
-	if (buffer == NULL) {
-		return NULL;
-	}
+	struct buffer_data *buffer = malloc(sizeof(*buffer));
 	buffer->size = initial_size;
 	buffer->used = 0;
-	buffer->buf = (char*)malloc(initial_size);
-	if (buffer->buf == NULL) {
-		free(buffer);
-		return NULL;
-	}
+	buffer->buf = malloc(initial_size);
 	return buffer;
 }
 
 extern void buffer_ensure_capacity(buffer_t buffer, int capacity)
 {
 	if (capacity > buffer->size) {
-		buffer->buf = (char*)realloc(buffer->buf, capacity);
+		buffer->buf = realloc(buffer->buf, capacity);
 	}
 }
 
@@ -56,10 +56,7 @@ extern char *buffer_data(buffer_t buffer)
 
 extern char *buffer_data_copy(buffer_t buffer)
 {
-	char *buf = (char*)malloc(buffer->used);
-	if (buf == NULL) {
-		return NULL;
-	}
+	char *buf = malloc(buffer->used);
 	memcpy(buf, buffer->buf, buffer->used);
 	return buf;
 }

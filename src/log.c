@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "memory.h"
 #include "log.h"
 
 char *unit_name = NULL;
@@ -18,7 +19,7 @@ extern void log_set_unit(const char *name)
     if (unit_name != NULL) {
         free(unit_name);
     }
-    unit_name = (char*)malloc(len + 1);
+    unit_name = malloc(len + 1);
     memcpy(unit_name, name, len + 1);
 }
 

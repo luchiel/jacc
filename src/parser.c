@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "memory.h"
 #include "lexer.h"
 #include "parser.h"
 #include "log.h"
