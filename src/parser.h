@@ -49,15 +49,16 @@ struct string_node {
 	char *value;
 };
 
+#define NODE(name, str, cat, op_cnt) \
+struct node_NT_##name { \
+	enum node_type type; \
+	struct node *ops[op_cnt]; \
+};
+#include "nodes.def"
+#undef NODE
+
 DEFINE_NODE_TYPE(unary_node, 1)
 DEFINE_NODE_TYPE(binary_node, 2)
-DEFINE_NODE_TYPE(ternary_node, 3)
-
-DEFINE_NODE_TYPE(return_node, 1)
-DEFINE_NODE_TYPE(if_node, 3)
-DEFINE_NODE_TYPE(while_node, 2)
-DEFINE_NODE_TYPE(list_node, 2)
-DEFINE_NODE_TYPE(for_node, 4)
 
 extern void parser_init();
 extern void parser_destroy();

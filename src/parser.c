@@ -5,12 +5,14 @@
 #include "log.h"
 #include "gc.h"
 
-#define ALLOC_NODE(type, var_name) \
-	struct type *var_name = malloc(sizeof(*var_name)); \
-	gc_add(parser_gc, var_name);
-#define ALLOC_NODE_EX(node_type, var_name, enum_type) \
-	ALLOC_NODE(node_type, var_name) \
+#define ALLOC_NODE(enum_type, var_name) \
+	ALLOC_NODE_EX(enum_type, var_name, node_##enum_type)
+
+#define ALLOC_NODE_EX(enum_type, var_name, struct_name) \
+	struct struct_name *var_name = malloc(sizeof(*var_name)); \
+	gc_add(parser_gc, var_name); \
 	((struct node*)(var_name))->type = (enum_type);
+
 #define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
 #define CONSUME(token_type) { EXPECT(token_type); next_token(); }
 
@@ -63,7 +65,7 @@ static void unexpected_token(const char *string)
 static struct node *parse_ident()
 {
 	EXPECT(TOK_IDENT);
-	ALLOC_NODE_EX(string_node, node, NT_IDENT);
+	ALLOC_NODE_EX(NT_IDENT, node, string_node);
 	node->value = token.value.str_val;
 	token.value.str_val = NULL;
 	next_token();
@@ -84,7 +86,7 @@ static struct node *parse_primary_expr()
 		}
 		case TOK_STRING_CONST:
 		{
-			ALLOC_NODE_EX(string_node, node, NT_STRING);
+			ALLOC_NODE_EX(NT_STRING, node, string_node);
 			node->value = token.value.str_val;
 			token.value.str_val = NULL;
 			next_token();
@@ -95,14 +97,14 @@ static struct node *parse_primary_expr()
 			return parse_ident();
 		case TOK_INT_CONST:
 		{
-			ALLOC_NODE_EX(int_node, node, NT_INT);
+			ALLOC_NODE_EX(NT_INT, node, int_node);
 			node->value = token.value.int_val;
 			next_token();
 			return (struct node*)node;
 		}
 		case TOK_FLOAT_CONST:
 		{
-			ALLOC_NODE_EX(double_node, node, NT_DOUBLE);
+			ALLOC_NODE_EX(NT_DOUBLE, node, double_node);
 			node->value = token.value.float_val;
 			next_token();
 			return (struct node*)node;
@@ -128,8 +130,8 @@ static enum node_type get_postfix_node_type()
 
 static struct node *parse_nop()
 {
-	ALLOC_NODE_EX(node, node, NT_NOP);
-	return node;
+	ALLOC_NODE(NT_NOP, node);
+	return (struct node *)node;
 }
 
 static struct node *parse_postfix_expr()
@@ -141,7 +143,7 @@ static struct node *parse_postfix_expr()
 			case TOK_INC_OP:
 			case TOK_DEC_OP:
 			{
-				ALLOC_NODE_EX(unary_node, unode, get_postfix_node_type());
+				ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node);
 				unode->ops[0] = node;
 				node = (struct node*)unode;
 				next_token();
@@ -152,7 +154,7 @@ static struct node *parse_postfix_expr()
 			case TOK_LPAREN:
 			case TOK_LBRACKET:
 			{
-				ALLOC_NODE_EX(unary_node, unode, get_postfix_node_type());
+				ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node);
 				unode->ops[0] = node;
 				next_token();
 
@@ -216,7 +218,7 @@ static struct node *parse_unary_expr()
 	case TOK_INC_OP:
 	case TOK_DEC_OP:
 	{
-		ALLOC_NODE_EX(unary_node, node, get_unary_node_type());
+		ALLOC_NODE_EX(get_unary_node_type(), node, unary_node);
 		next_token();
 		switch (node->base.type) {
 		case NT_PREFIX_INC:
@@ -245,7 +247,7 @@ static struct node *parse_cond_expr()
 		if (!accept(TOK_QUESTION)) {
 			return node;
 		}
-		ALLOC_NODE_EX(ternary_node, new_node, NT_TERNARY);
+		ALLOC_NODE(NT_TERNARY, new_node);
 		new_node->ops[0] = node;
 		PARSE(new_node->ops[1], expr, 0)
 		CONSUME(TOK_COLON);
@@ -363,7 +365,7 @@ static struct node *parse_assign_expr()
 		return node;
 	}
 
-	ALLOC_NODE_EX(binary_node, new_node, get_node_type());
+	ALLOC_NODE_EX(get_node_type(), new_node, binary_node);
 	next_token();
 	new_node->ops[0] = node;
 	PARSE(new_node->ops[1], assign_expr)
@@ -400,7 +402,7 @@ static struct node *parse_expr(int level)
 		if (!accept_expr_token(level)) {
 			return node;
 		}
-		ALLOC_NODE_EX(binary_node, new_node, get_node_type());
+		ALLOC_NODE_EX(get_node_type(), new_node, binary_node);
 		next_token();
 		new_node->ops[0] = node;
 		PARSE(new_node->ops[1], expr_subnode, level);
@@ -426,7 +428,7 @@ static struct node *parse_stmt()
 	switch (token.type) {
 	case TOK_RETURN:
 	{
-		ALLOC_NODE_EX(return_node, ret_node, NT_RETURN);
+		ALLOC_NODE(NT_RETURN, ret_node);
 		next_token();
 		if (token.type == TOK_SEMICOLON) {
 			PARSE(ret_node->ops[0], nop)
@@ -440,7 +442,7 @@ static struct node *parse_stmt()
 	{
 		CONSUME(TOK_WHILE)
 		CONSUME(TOK_LPAREN)
-		ALLOC_NODE_EX(while_node, while_node, NT_WHILE)
+		ALLOC_NODE(NT_WHILE, while_node)
 		PARSE(while_node->ops[0], expr, 0)
 		CONSUME(TOK_RPAREN)
 		PARSE(while_node->ops[1], stmt)
@@ -449,7 +451,7 @@ static struct node *parse_stmt()
 	case TOK_DO:
 	{
 		CONSUME(TOK_DO)
-		ALLOC_NODE_EX(while_node, while_node, NT_DO_WHILE)
+		ALLOC_NODE(NT_DO_WHILE, while_node)
 		PARSE(while_node->ops[0], stmt)
 		CONSUME(TOK_WHILE)
 		CONSUME(TOK_LPAREN)
@@ -461,7 +463,7 @@ static struct node *parse_stmt()
 	case TOK_FOR:
 	{
 		CONSUME(TOK_FOR)
-		ALLOC_NODE_EX(for_node, for_node, NT_FOR)
+		ALLOC_NODE(NT_FOR, for_node)
 		CONSUME(TOK_LPAREN)
 		PARSE(for_node->ops[0], opt_expr_with, TOK_SEMICOLON)
 		PARSE(for_node->ops[1], opt_expr_with, TOK_SEMICOLON)
@@ -471,7 +473,7 @@ static struct node *parse_stmt()
 	}
 	case TOK_IF:
 	{
-		ALLOC_NODE_EX(if_node, if_node, NT_IF)
+		ALLOC_NODE(NT_IF, if_node)
 		CONSUME(TOK_IF)
 		CONSUME(TOK_LPAREN)
 		PARSE(if_node->ops[0], expr, 0)
@@ -493,7 +495,7 @@ static struct node *parse_stmt()
 		struct node *node;
 		PARSE(node, stmt)
 		while (!accept(TOK_RBRACE)) {
-			ALLOC_NODE_EX(list_node, list_node, NT_LIST)
+			ALLOC_NODE(NT_LIST, list_node)
 			list_node->ops[0] = node;
 			PARSE(list_node->ops[1], stmt)
 			node = (struct node*)list_node;
@@ -504,15 +506,15 @@ static struct node *parse_stmt()
 	{
 		CONSUME(TOK_BREAK)
 		CONSUME(TOK_SEMICOLON)
-		ALLOC_NODE_EX(node, break_node, NT_BREAK)
-		return break_node;
+		ALLOC_NODE(NT_BREAK, break_node)
+		return (struct node*)break_node;
 	}
 	case TOK_CONTINUE:
 	{
 		CONSUME(TOK_CONTINUE)
 		CONSUME(TOK_SEMICOLON)
-		ALLOC_NODE_EX(node, continue_node, NT_CONTINUE)
-		return continue_node;
+		ALLOC_NODE(NT_CONTINUE, continue_node)
+		return (struct node*)continue_node;
 	}
 	default:
 	{
@@ -522,7 +524,7 @@ static struct node *parse_stmt()
 		struct node *node;
 		PARSE(node, expr, 0)
 		CONSUME(TOK_SEMICOLON);
-		return node;
+		return (struct node*)node;
 	}
 	}
 }
