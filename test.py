@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+from __future__ import with_statement
 import glob
 import os
 import difflib
@@ -18,6 +19,10 @@ def change_ext(path, new_ext):
 def unlink(path):
     if os.path.exists(path):
         os.unlink(path)
+
+def read_file(name):
+    lines = open(name, 'r').readlines()
+    return [line.strip() for line in lines]
 
 def run_tests(dir, cmd_template):
     path = os.path.join(tests_dir, dir)
@@ -46,8 +51,8 @@ def run_tests(dir, cmd_template):
             continue
 
         try:
-            output = map(str.strip, open(output_file, 'r').readlines())
-            answer = map(str.strip, open(answer_file, 'r').readlines())
+            output = read_file(output_file)
+            answer = read_file(answer_file)
         except IOError:
             failed.append('%s (IO)' % test_name)
             continue
@@ -74,7 +79,7 @@ def get_status(failed):
 if __name__ == '__main__':
     total = 0
     total_failed = 0
-    for dir, cmd in tests.iteritems():
+    for dir, cmd in tests.items():
         stats = run_tests(dir, os.path.join(tester_dir, cmd))
 
         total += stats['total']
@@ -86,8 +91,8 @@ if __name__ == '__main__':
         fail_list = ""
         if stats['failed']:
             fail_list = " - %s" % (', '.join(stats['failed']))
-        print "%s: %s (%d/%d)%s" % (dir, status, succeed, stats['total'], fail_list)
+        print("%s: %s (%d/%d)%s" % (dir, status, succeed, stats['total'], fail_list))
 
     succeed = total - total_failed
-    print "---"
-    print "%s (%d/%d)" % (get_status(total_failed), succeed, total)
+    print("---")
+    print("%s (%d/%d)" % (get_status(total_failed), succeed, total))
