@@ -18,126 +18,23 @@ int line, column;
 
 /* Keep in sync with lexer.h token_type_t */
 const char* token_names[] = {
-    "STRING_CONST",
-    "INT_CONST",
-    "FLOAT_CONST",
-    "IDENT",
-    "COMMENT",
-
-    "BREAK",
-    "CASE",
-    "CHAR",
-    "CONST",
-    "CONTINUE",
-    "DEFAULT",
-    "DO",
-    "DOUBLE",
-    "ELSE",
-    "ENUM",
-    "EXTERN",
-    "FLOAT",
-    "FOR",
-    "IF",
-    "INT",
-    "REGISTER",
-    "RETURN",
-    "SIZEOF",
-    "STATIC",
-    "STRUCT",
-    "SWITCH",
-    "TYPEDEF",
-    "UNION",
-    "VOID",
-    "WHILE",
-
-    "LBRACKET",
-    "RBRACKET",
-    "LBRACE",
-    "RBRACE",
-    "LPAREN",
-    "RPAREN",
-
-    "DOT",
-    "COMMA",
-    "AMP",
-    "TILDE",
-    "QUESTION",
-    "COLON",
-    "SEMICOLON",
-    "ELLIPSIS",
-    "STAR",
-
-    "REF_OP",
-
-    "INC_OP",
-    "DEC_OP",
-
-    "ADD_OP",
-    "SUB_OP",
-    "DIV_OP",
-    "MOD_OP",
-
-    "NEG_OP",
-
-    "LSHIFT_OP",
-    "RSHIFT_OP",
-
-    "LT_OP",
-    "LE_OP",
-    "GT_OP",
-    "GE_OP",
-    "EQUAL_OP",
-    "NOT_EQUAL_OP",
-
-    "BIT_XOR_OP",
-    "BIT_OR_OP",
-
-    "AND_OP",
-    "OR_OP",
-
-    "ASSIGN",
-    "MUL_ASSIGN",
-    "DIV_ASSIGN",
-    "MOD_ASSIGN",
-    "ADD_ASSIGN",
-    "SUB_ASSIGN",
-    "LSHIFT_ASSIGN",
-    "RSHIFT_ASSIGN",
-    "BIT_OR_ASSIGN",
-    "BIT_AND_ASSIGN",
-    "BIT_XOR_ASSIGN",
-
-    "EOS",
-    "UNKNOWN",
+#define TOKEN(name) #name,
+#define KEYWORD(name, str) TOKEN(name)
+#include "tokens.def"
+#undef KEYWORD
+#undef TOKEN
 };
 
-const char *idents[] = {
-    "break",
-    "case",
-    "char",
-    "const",
-    "continue",
-    "default",
-    "do",
-    "double",
-    "else",
-    "enum",
-    "extern",
-    "float",
-    "for",
-    "if",
-    "int",
-    "register",
-    "return",
-    "sizeof",
-    "static",
-    "struct",
-    "switch",
-    "typedef",
-    "union",
-    "void",
-    "while",
+char *keywords[] = {
+#define TOKEN(name)
+#define KEYWORD(name, str) str,
+#include "tokens.def"
+#undef KEYWORD
+#undef TOKEN
 };
+
+#define KEYWORDS_COUNT (TOK_WHILE - TOK_BREAK + 1)
+#define KEYWORDS_START TOK_BREAK
 
 void read_stream()
 {
@@ -370,9 +267,9 @@ enum token_type get_ident_type(const char *ident)
 {
     /* TODO use hash table instead? */
     int i;
-    for (i = 0; i <= TOK_WHILE - TOK_BREAK; i++) {
-        if (strcmp(ident, idents[i]) == 0) {
-            return i + TOK_BREAK;
+    for (i = 0; i < KEYWORDS_COUNT; i++) {
+        if (strcmp(ident, keywords[i]) == 0) {
+            return i + KEYWORDS_START;
         }
     }
     return TOK_IDENT;
