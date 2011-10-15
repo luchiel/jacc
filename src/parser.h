@@ -58,6 +58,7 @@ extern void parser_destroy();
 extern struct node *parser_parse_expr();
 extern void parser_free_node(struct node *node);
 extern enum node_category parser_node_category(struct node *node);
+extern int parser_subnodes_count(struct node *node);
 extern const char *parser_node_name(struct node *node);
 
 #endif

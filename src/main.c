@@ -95,25 +95,21 @@ void print_branch(struct node *node, int level, int last)
 void print_node(struct node *node, int level)
 {
     const char *node_name = parser_node_name(node);
-    int node_count = 0, i;
+    int i, node_count;
     show_indents[level + 1] = 1;
 
     print_node_indent(level);
     switch (node->cat) {
     case NC_TERNARY:
         printf("(%s)\n", node_name);
-        node_count = 3;
         break;
     case NC_BINARY:
         printf("(%s)\n", node_name);
-        node_count = 2;
         break;
     case NC_UNARY:
         printf("(%s)\n", node_name);
-        node_count = 1;
         break;
     case NC_ATOM:
-        node_count = 0;
         printf("(");
         switch (node->type) {
             case NT_INT:
@@ -136,6 +132,7 @@ void print_node(struct node *node, int level)
         break;
     }
 
+    node_count = parser_subnodes_count(node);
     for (i = 0; i < node_count; i++) {
         print_branch(node->ops[i], level, i == node_count - 1);
     }

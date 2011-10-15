@@ -475,26 +475,30 @@ extern struct node *parser_parse_expr()
 	return node;
 }
 
+extern int parser_subnodes_count(struct node *node)
+{
+	switch (node->cat)
+	{
+	case NC_TERNARY: return 3;
+	case NC_BINARY: return 2;
+	case NC_UNARY: return 1;
+	}
+	return 0;
+}
+
 extern void parser_free_node(struct node *node)
 {
+	int i;
 	if (node == NULL) {
 		return;
 	}
 
+	for (i = 0; i < parser_subnodes_count(node); i++) {
+		parser_free_node(node->ops[i]);
+	}
+
 	switch (node->cat)
 	{
-	case NC_TERNARY:
-		parser_free_node(node->ops[0]);
-		parser_free_node(node->ops[1]);
-		parser_free_node(node->ops[2]);
-		break;
-	case NC_BINARY:
-		parser_free_node(node->ops[0]);
-		parser_free_node(node->ops[1]);
-		break;
-	case NC_UNARY:
-		parser_free_node(node->ops[0]);
-		break;
 	case NC_ATOM:
 		switch (node->type) {
 		case NT_STRING:
