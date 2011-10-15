@@ -3,6 +3,7 @@ from __future__ import with_statement
 import glob
 import os
 import difflib
+import time
 
 tests = {
 	'lexer': 'jacc lex "%(input)s" > "%(output)s" 2>&1',
@@ -79,6 +80,7 @@ def get_status(failed):
 if __name__ == '__main__':
     total = 0
     total_failed = 0
+    started_at = time.time()
     for dir, cmd in tests.items():
         stats = run_tests(dir, os.path.join(tester_dir, cmd))
 
@@ -95,4 +97,10 @@ if __name__ == '__main__':
 
     succeed = total - total_failed
     print("---")
-    print("%s (%d/%d)" % (get_status(total_failed), succeed, total))
+
+    print("%s (%d/%d, %.2f seconds)" % (
+        get_status(total_failed),
+        succeed,
+        total,
+        time.time() - started_at,
+    ))
