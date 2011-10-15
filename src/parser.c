@@ -440,9 +440,9 @@ static struct node *parse_stmt()
 	}
 	case TOK_WHILE:
 	{
+		ALLOC_NODE(NT_WHILE, while_node)
 		CONSUME(TOK_WHILE)
 		CONSUME(TOK_LPAREN)
-		ALLOC_NODE(NT_WHILE, while_node)
 		PARSE(while_node->ops[0], expr, 0)
 		CONSUME(TOK_RPAREN)
 		PARSE(while_node->ops[1], stmt)
@@ -450,8 +450,8 @@ static struct node *parse_stmt()
 	}
 	case TOK_DO:
 	{
-		CONSUME(TOK_DO)
 		ALLOC_NODE(NT_DO_WHILE, while_node)
+		CONSUME(TOK_DO)
 		PARSE(while_node->ops[0], stmt)
 		CONSUME(TOK_WHILE)
 		CONSUME(TOK_LPAREN)
@@ -462,8 +462,8 @@ static struct node *parse_stmt()
 	}
 	case TOK_FOR:
 	{
-		CONSUME(TOK_FOR)
 		ALLOC_NODE(NT_FOR, for_node)
+		CONSUME(TOK_FOR)
 		CONSUME(TOK_LPAREN)
 		PARSE(for_node->ops[0], opt_expr_with, TOK_SEMICOLON)
 		PARSE(for_node->ops[1], opt_expr_with, TOK_SEMICOLON)
