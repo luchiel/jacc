@@ -1,0 +1,1 @@
+bad_goto_1.in:1:5: error: unexpected token EOS, expected IDENT

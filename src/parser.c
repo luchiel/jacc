@@ -516,6 +516,14 @@ static struct node *parse_stmt()
 		ALLOC_NODE(NT_CONTINUE, continue_node)
 		return (struct node*)continue_node;
 	}
+	case TOK_GOTO:
+	{
+		ALLOC_NODE(NT_GOTO, goto_node)
+		CONSUME(TOK_GOTO)
+		PARSE(goto_node->ops[0], ident)
+		CONSUME(TOK_SEMICOLON)
+		return (struct node*)goto_node;
+	}
 	default:
 	{
 		if (accept(TOK_SEMICOLON)) {
