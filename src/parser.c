@@ -472,9 +472,8 @@ extern void parser_destroy()
 	lexer_token_free_data(&token);
 }
 
-extern struct node *parser_parse_expr()
+static struct node *safe_parsing(struct node *node)
 {
-	struct node *node = parse_expr(0);
 	if (node == NULL) {
 		gc_free_objects(parser_gc);
 		return NULL;
@@ -484,16 +483,14 @@ extern struct node *parser_parse_expr()
 	return node;
 }
 
+extern struct node *parser_parse_expr()
+{
+	return safe_parsing(parse_expr(0));
+}
+
 extern struct node *parser_parse_statement()
 {
-	struct node *node = parse_stmt(0);
-	if (node == NULL) {
-		gc_free_objects(parser_gc);
-		return NULL;
-	}
-	EXPECT(TOK_EOS);
-	gc_clear(parser_gc);
-	return node;
+	return safe_parsing(parse_stmt());
 }
 
 extern void parser_free_node(struct node *node)
