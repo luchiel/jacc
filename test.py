@@ -80,13 +80,13 @@ if __name__ == '__main__':
         total += stats['total']
         total_failed += len(stats['failed'])
 
-        succeed = total - len(stats['failed'])
-        status = get_status(total - succeed)
+        succeed = stats['total'] - len(stats['failed'])
+        status = get_status(len(stats['failed']))
 
         fail_list = ""
         if stats['failed']:
             fail_list = " - %s" % (', '.join(stats['failed']))
-        print "%s: %s (%d/%d)%s" % (dir, status, succeed, total, fail_list)
+        print "%s: %s (%d/%d)%s" % (dir, status, succeed, stats['total'], fail_list)
 
     succeed = total - total_failed
     print "---"
