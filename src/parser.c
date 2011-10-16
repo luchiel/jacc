@@ -53,7 +53,7 @@ static int accept(enum token_type type)
 static void unexpected_token(const char *string)
 {
 	char buf[255];
-	if (string[0] == 0) {
+	if (string == NULL) {
 		sprintf(buf, "unexpected token %s", lexer_token_type_name(token.type));
 	} else {
 		sprintf(buf, "unexpected token %s, expected %s",
@@ -66,8 +66,8 @@ static void unexpected_token(const char *string)
 
 static struct node *parse_ident()
 {
-	EXPECT(TOK_IDENT);
-	ALLOC_NODE_EX(NT_IDENT, node, string_node);
+	EXPECT(TOK_IDENT)
+	ALLOC_NODE_EX(NT_IDENT, node, string_node)
 	node->value = token.value.str_val;
 	token.value.str_val = NULL;
 	next_token();
@@ -80,15 +80,15 @@ static struct node *parse_primary_expr()
 	switch (token.type) {
 		case TOK_LPAREN:
 		{
-			next_token();
+			CONSUME(TOK_LPAREN)
 			struct node *node;
 			PARSE(node, expr, 0)
-			CONSUME(TOK_RPAREN);
+			CONSUME(TOK_RPAREN)
 			return node;
 		}
 		case TOK_STRING_CONST:
 		{
-			ALLOC_NODE_EX(NT_STRING, node, string_node);
+			ALLOC_NODE_EX(NT_STRING, node, string_node)
 			node->value = token.value.str_val;
 			token.value.str_val = NULL;
 			next_token();
@@ -99,20 +99,20 @@ static struct node *parse_primary_expr()
 			return parse_ident();
 		case TOK_INT_CONST:
 		{
-			ALLOC_NODE_EX(NT_INT, node, int_node);
+			ALLOC_NODE_EX(NT_INT, node, int_node)
 			node->value = token.value.int_val;
 			next_token();
 			return (struct node*)node;
 		}
 		case TOK_FLOAT_CONST:
 		{
-			ALLOC_NODE_EX(NT_DOUBLE, node, double_node);
+			ALLOC_NODE_EX(NT_DOUBLE, node, double_node)
 			node->value = token.value.float_val;
 			next_token();
 			return (struct node*)node;
 		}
 		default:
-			unexpected_token("");
+			unexpected_token(NULL);
 			return NULL;
 	}
 }
@@ -145,7 +145,7 @@ static struct node *parse_postfix_expr()
 			case TOK_INC_OP:
 			case TOK_DEC_OP:
 			{
-				ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node);
+				ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node)
 				unode->ops[0] = node;
 				node = (struct node*)unode;
 				next_token();
@@ -156,7 +156,7 @@ static struct node *parse_postfix_expr()
 			case TOK_LPAREN:
 			case TOK_LBRACKET:
 			{
-				ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node);
+				ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node)
 				unode->ops[0] = node;
 				next_token();
 
@@ -178,9 +178,9 @@ static struct node *parse_postfix_expr()
 				}
 
 				if (unode->base.type == NT_CALL) {
-					CONSUME(TOK_RPAREN);
+					CONSUME(TOK_RPAREN)
 				} else if (unode->base.type == NT_SUBSCRIPT) {
-					CONSUME(TOK_RBRACKET);
+					CONSUME(TOK_RBRACKET)
 				}
 
 				node = (struct node*)unode;
@@ -249,10 +249,10 @@ static struct node *parse_cond_expr()
 		if (!accept(TOK_QUESTION)) {
 			return node;
 		}
-		ALLOC_NODE(NT_TERNARY, new_node);
+		ALLOC_NODE(NT_TERNARY, new_node)
 		new_node->ops[0] = node;
 		PARSE(new_node->ops[1], expr, 0)
-		CONSUME(TOK_COLON);
+		CONSUME(TOK_COLON)
 		PARSE(new_node->ops[2], expr, 1)
 		node = (struct node*)new_node;
 	}
@@ -315,27 +315,27 @@ static int accept_expr_token(int level)
 		case 4: CHECK(TOK_BIT_XOR_OP); break;
 		case 5: CHECK(TOK_AMP); break;
 		case 6:
-			CHECK(TOK_EQUAL_OP);
-			CHECK(TOK_NOT_EQUAL_OP);
+			CHECK(TOK_EQUAL_OP)
+			CHECK(TOK_NOT_EQUAL_OP)
 			break;
 		case 7:
-			CHECK(TOK_LT_OP);
-			CHECK(TOK_LE_OP);
-			CHECK(TOK_GT_OP);
-			CHECK(TOK_GE_OP);
+			CHECK(TOK_LT_OP)
+			CHECK(TOK_LE_OP)
+			CHECK(TOK_GT_OP)
+			CHECK(TOK_GE_OP)
 			break;
 		case 8:
-			CHECK(TOK_LSHIFT_OP);
-			CHECK(TOK_RSHIFT_OP);
+			CHECK(TOK_LSHIFT_OP)
+			CHECK(TOK_RSHIFT_OP)
 			break;
 		case 9:
-			CHECK(TOK_ADD_OP);
-			CHECK(TOK_SUB_OP);
+			CHECK(TOK_ADD_OP)
+			CHECK(TOK_SUB_OP)
 			break;
 		case 10:
-			CHECK(TOK_STAR);
-			CHECK(TOK_DIV_OP);
-			CHECK(TOK_MOD_OP);
+			CHECK(TOK_STAR)
+			CHECK(TOK_DIV_OP)
+			CHECK(TOK_MOD_OP)
 			break;
 		}
 	return 0;
@@ -367,7 +367,7 @@ static struct node *parse_assign_expr()
 		return node;
 	}
 
-	ALLOC_NODE_EX(get_node_type(), new_node, binary_node);
+	ALLOC_NODE_EX(get_node_type(), new_node, binary_node)
 	next_token();
 	new_node->ops[0] = node;
 	PARSE(new_node->ops[1], assign_expr)
@@ -398,16 +398,16 @@ static struct node *parse_expr_subnode(int level)
 static struct node *parse_expr(int level)
 {
 	struct node *node;
-	PARSE(node, expr_subnode, level);
+	PARSE(node, expr_subnode, level)
 
 	while (1) {
 		if (!accept_expr_token(level)) {
 			return node;
 		}
-		ALLOC_NODE_EX(get_node_type(), new_node, binary_node);
+		ALLOC_NODE_EX(get_node_type(), new_node, binary_node)
 		next_token();
 		new_node->ops[0] = node;
-		PARSE(new_node->ops[1], expr_subnode, level);
+		PARSE(new_node->ops[1], expr_subnode, level)
 		node = (struct node*)new_node;
 	}
 	return node;
@@ -435,14 +435,14 @@ static struct node *parse_stmt()
 	switch (token.type) {
 	case TOK_RETURN:
 	{
-		ALLOC_NODE(NT_RETURN, ret_node);
+		ALLOC_NODE(NT_RETURN, ret_node)
 		next_token();
 		if (token.type == TOK_SEMICOLON) {
 			PARSE(ret_node->ops[0], nop)
 		} else {
 			PARSE(ret_node->ops[0], expr, 0)
 		}
-		CONSUME(TOK_SEMICOLON);
+		CONSUME(TOK_SEMICOLON)
 		return (struct node*)ret_node;
 	}
 	case TOK_WHILE:
@@ -562,7 +562,7 @@ static struct node *parse_stmt()
 		}
 		struct node *node;
 		PARSE(node, expr, 0)
-		CONSUME(TOK_SEMICOLON);
+		CONSUME(TOK_SEMICOLON)
 		return (struct node*)node;
 	}
 	}
@@ -589,7 +589,7 @@ static struct node *safe_parsing(struct node *node)
 		gc_free_objects(parser_gc);
 		return NULL;
 	}
-	EXPECT(TOK_EOS);
+	EXPECT(TOK_EOS)
 	gc_clear(parser_gc);
 	return node;
 }
