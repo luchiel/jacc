@@ -37,9 +37,11 @@ static int next_token()
 {
 	lexer_token_free_data(&token);
 	token = token_next;
-	do {
+	lexer_next_token(&token_next);
+	while (token_next.type == TOK_COMMENT) {
+		lexer_token_free_data(&token_next);
 		lexer_next_token(&token_next);
-	} while (token_next.type == TOK_COMMENT);
+	}
 	return token.type != TOK_ERROR;
 }
 
