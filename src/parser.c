@@ -413,6 +413,11 @@ static struct node *parse_expr(int level)
 	return node;
 }
 
+static struct node *parse_const_expr()
+{
+	return parse_cond_expr();
+}
+
 static struct node *parse_opt_expr_with(enum token_type type)
 {
 	struct node *node;
@@ -533,6 +538,15 @@ static struct node *parse_stmt()
 		CONSUME(TOK_COLON)
 		PARSE(default_node->ops[0], stmt)
 		return (struct node*)default_node;
+	}
+	case TOK_CASE:
+	{
+		ALLOC_NODE(NT_CASE, case_node)
+		CONSUME(TOK_CASE)
+		PARSE(case_node->ops[0], const_expr)
+		CONSUME(TOK_COLON)
+		PARSE(case_node->ops[1], stmt)
+		return (struct node*)case_node;
 	}
 	default:
 	{
