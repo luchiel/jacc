@@ -495,6 +495,16 @@ static struct node *parse_stmt()
 		}
 		return (struct node*)if_node;
 	}
+	case TOK_SWITCH:
+	{
+		ALLOC_NODE(NT_SWITCH, switch_node)
+		CONSUME(TOK_SWITCH)
+		CONSUME(TOK_LPAREN)
+		PARSE(switch_node->ops[0], expr, 0)
+		CONSUME(TOK_RPAREN)
+		PARSE(switch_node->ops[1], stmt)
+		return (struct node*)switch_node;
+	}
 	case TOK_LBRACE:
 	{
 		CONSUME(TOK_LBRACE)
