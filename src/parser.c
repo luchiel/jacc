@@ -22,6 +22,7 @@
 gc_t parser_gc;
 
 struct token token;
+struct token token_next;
 
 struct node_info nodes_info[] = {
 #define NODE(name, repr, cat, op_cnt) {repr, cat, op_cnt},
@@ -35,7 +36,8 @@ static struct node *parse_cast_expr();
 static int next_token()
 {
 	lexer_token_free_data(&token);
-	lexer_next_token(&token);
+	token = token_next;
+	lexer_next_token(&token_next);
 	return token.type != TOK_ERROR;
 }
 
@@ -529,6 +531,13 @@ static struct node *parse_stmt()
 		if (accept(TOK_SEMICOLON)) {
 			return parse_nop();
 		}
+		else if (token.type == TOK_IDENT && token_next.type == TOK_COLON) {
+			ALLOC_NODE(NT_LABEL, label_node)
+			PARSE(label_node->ops[0], ident)
+			CONSUME(TOK_COLON)
+			PARSE(label_node->ops[1], stmt)
+			return (struct node*)label_node;
+		}
 		struct node *node;
 		PARSE(node, expr, 0)
 		CONSUME(TOK_SEMICOLON);
@@ -541,6 +550,8 @@ extern void parser_init()
 {
 	parser_gc = gc_create();
 	token.type = TOK_ERROR;
+	token_next.type = TOK_ERROR;
+	next_token();
 	next_token();
 }
 
