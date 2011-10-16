@@ -526,12 +526,20 @@ static struct node *parse_stmt()
 		CONSUME(TOK_SEMICOLON)
 		return (struct node*)goto_node;
 	}
+	case TOK_DEFAULT:
+	{
+		ALLOC_NODE(NT_DEFAULT, default_node)
+		CONSUME(TOK_DEFAULT)
+		CONSUME(TOK_COLON)
+		PARSE(default_node->ops[0], stmt)
+		return (struct node*)default_node;
+	}
 	default:
 	{
 		if (accept(TOK_SEMICOLON)) {
 			return parse_nop();
 		}
-		else if (token.type == TOK_IDENT && token_next.type == TOK_COLON) {
+		else if (token.type == TOK_IDENT && token_next.type == TOK_COLON){
 			ALLOC_NODE(NT_LABEL, label_node)
 			PARSE(label_node->ops[0], ident)
 			CONSUME(TOK_COLON)
