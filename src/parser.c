@@ -231,7 +231,7 @@ static struct node *parse_unary_expr()
 			PARSE(node->ops[0], unary_expr)
 			break;
 		default:
-			PARSE(node->ops[0], unary_expr)
+			PARSE(node->ops[0], cast_expr)
 		}
 		return (struct node*)node;
 	}
