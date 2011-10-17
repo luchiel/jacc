@@ -53,6 +53,7 @@ extern void gc_clear(gc_t gc)
 		block = next_block;
 	}
 	gc->head->size = 0;
+	gc->head->next = NULL;
 }
 
 extern void gc_free_objects(gc_t gc)
