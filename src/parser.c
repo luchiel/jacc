@@ -565,8 +565,7 @@ static struct node *parse_stmt()
 	{
 		if (accept(TOK_SEMICOLON)) {
 			return parse_nop();
-		}
-		else if (token.type == TOK_IDENT && token_next.type == TOK_COLON){
+		} else if (token.type == TOK_IDENT && token_next.type == TOK_COLON) {
 			ALLOC_NODE(NT_LABEL, label_node)
 			PARSE(label_node->ops[0], ident)
 			CONSUME(TOK_COLON)
