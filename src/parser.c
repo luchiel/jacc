@@ -9,7 +9,7 @@
 	ALLOC_NODE_EX(enum_type, var_name, node_##enum_type)
 
 #define ALLOC_NODE_EX(enum_type, var_name, struct_name) \
-	struct struct_name *var_name = malloc(sizeof(*var_name)); \
+	struct struct_name *var_name = jacc_malloc(sizeof(*var_name)); \
 	gc_add(parser_gc, var_name); \
 	((struct node*)(var_name))->type = (enum_type);
 
@@ -631,10 +631,10 @@ extern void parser_free_node(struct node *node)
 	{
 	case NT_STRING:
 	case NT_IDENT:
-		free(((struct string_node*)node)->value);
+		jacc_free(((struct string_node*)node)->value);
 		break;
 	}
-	free(node);
+	jacc_free(node);
 }
 
 extern struct node_info *parser_node_info(struct node *node)

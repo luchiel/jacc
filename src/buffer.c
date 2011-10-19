@@ -11,17 +11,17 @@ struct buffer_data {
 
 extern buffer_t buffer_create(int initial_size)
 {
-	struct buffer_data *buffer = malloc(sizeof(*buffer));
+	struct buffer_data *buffer = jacc_malloc(sizeof(*buffer));
 	buffer->size = initial_size;
 	buffer->used = 0;
-	buffer->buf = malloc(initial_size);
+	buffer->buf = jacc_malloc(initial_size);
 	return buffer;
 }
 
 extern void buffer_ensure_capacity(buffer_t buffer, int capacity)
 {
 	if (capacity > buffer->size) {
-		buffer->buf = realloc(buffer->buf, capacity);
+		buffer->buf = jacc_realloc(buffer->buf, capacity);
 	}
 }
 
@@ -56,13 +56,13 @@ extern char *buffer_data(buffer_t buffer)
 
 extern char *buffer_data_copy(buffer_t buffer)
 {
-	char *buf = malloc(buffer->used);
+	char *buf = jacc_malloc(buffer->used);
 	memcpy(buf, buffer->buf, buffer->used);
 	return buf;
 }
 
 extern void buffer_free(buffer_t buffer)
 {
-	free(buffer->buf);
-	free(buffer);
+	jacc_free(buffer->buf);
+	jacc_free(buffer);
 }

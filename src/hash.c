@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "hash.h"
+#include "memory.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned long uint32_t;
@@ -77,17 +78,17 @@ static uint32_t compute_hash(const void *key)
 
 extern hash_t hash_create(int size, hash_t parent)
 {
-	hash_t hash = malloc(sizeof(*hash));
+	hash_t hash = jacc_malloc(sizeof(*hash));
 	hash->size = size;
 	hash->parent = parent;
-	hash->buckets = malloc(size * sizeof(*hash->buckets));
+	hash->buckets = jacc_malloc(size * sizeof(*hash->buckets));
 	memset(hash->buckets, 0, size * sizeof(*hash->buckets));
 	return hash;
 }
 
 static void free_hash_node(struct hash_node *node)
 {
-	free(node);
+	jacc_free(node);
 }
 
 extern void hash_destroy(hash_t hash)
@@ -152,7 +153,7 @@ extern void hash_set(hash_t hash, hash_key_t key, hash_value_t value)
 		node->value = value;
 		return;
 	}
-	node = malloc(sizeof(*node));
+	node = jacc_malloc(sizeof(*node));
 	node->hash = compute_hash(key);
 	node->key = key;
 	node->value = value;

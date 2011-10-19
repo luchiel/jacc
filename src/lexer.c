@@ -614,7 +614,7 @@ extern void lexer_token_free_data(struct token *token)
     case TOK_STRING_CONST:
     case TOK_IDENT:
     case TOK_COMMENT:
-        free(token->value.str_val);
+        jacc_free(token->value.str_val);
     }
-    free(token->text);
+    jacc_free(token->text);
 }

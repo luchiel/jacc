@@ -10,16 +10,16 @@ int unit_line = -1, unit_column = -1;
 
 extern void log_close()
 {
-    free(unit_name);
+    jacc_free(unit_name);
 }
 
 extern void log_set_unit(const char *name)
 {
     int len = strlen(name);
     if (unit_name != NULL) {
-        free(unit_name);
+        jacc_free(unit_name);
     }
-    unit_name = malloc(len + 1);
+    unit_name = jacc_malloc(len + 1);
     memcpy(unit_name, name, len + 1);
 }
 
