@@ -102,15 +102,6 @@ void print_node(struct node *node, int level)
 
     print_node_indent(level);
     switch (info->cat) {
-    case NC_TERNARY:
-        printf("(%s)\n", info->repr);
-        break;
-    case NC_BINARY:
-        printf("(%s)\n", info->repr);
-        break;
-    case NC_UNARY:
-        printf("(%s)\n", info->repr);
-        break;
     case NC_ATOM:
         printf("(");
         switch (node->type) {
@@ -132,7 +123,7 @@ void print_node(struct node *node, int level)
         }
         printf(")\n");
         break;
-    case NC_STATEMENT:
+    default:
         printf("(%s)\n", info->repr);
         break;
     }
