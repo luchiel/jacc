@@ -1,6 +1,7 @@
-#include "hash.h"
 #include <stdlib.h>
 #include <string.h>
+
+#include "hash.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned long uint32_t;
@@ -80,6 +81,7 @@ extern hash_t hash_create(int size, hash_t parent)
 	hash->size = size;
 	hash->parent = parent;
 	hash->buckets = malloc(size * sizeof(*hash->buckets));
+	memset(hash->buckets, 0, size * sizeof(*hash->buckets));
 	return hash;
 }
 
@@ -104,25 +106,39 @@ extern void hash_destroy(hash_t hash)
 	free(hash);
 }
 
-static struct hash_node *find_node(hash_t hash, hash_key_t key)
+static struct hash_node *find_node(hash_t hash, hash_key_t key, struct hash_node **prev)
 {
 	uint32_t key_hash = compute_hash(key);
 	struct hash_node *node = hash->buckets[key_hash % hash->size];
+	
+	if (prev != NULL) {
+		*prev = NULL;
+	}
+
 	while (node != NULL) {
 		if (node->hash == key_hash && strcmp(node->key, key) == 0) {
 			return node;
 		}
+		if (prev != NULL) {
+			*prev = node;
+		}
 		node = node->next;
 	}
+
 	if (hash->parent != NULL) {
-		return find_node(hash->parent, key);
+		return find_node(hash->parent, key, prev);
 	}
+
+	if (prev != NULL) {
+		*prev = NULL;
+	}
+
 	return NULL;
 }
 
 extern hash_value_t hash_get(hash_t hash, hash_key_t key)
 {
-	struct hash_node *node = find_node(hash, key);
+	struct hash_node *node = find_node(hash, key, NULL);
 	if (node != NULL) {
 		return node->value;
 	}
@@ -131,7 +147,7 @@ extern hash_value_t hash_get(hash_t hash, hash_key_t key)
 
 extern void hash_set(hash_t hash, hash_key_t key, hash_value_t value)
 {
-	struct hash_node *node = find_node(hash, key);
+	struct hash_node *node = find_node(hash, key, NULL);
 	if (node != NULL) {
 		node->value = value;
 		return;
@@ -142,4 +158,19 @@ extern void hash_set(hash_t hash, hash_key_t key, hash_value_t value)
 	node->value = value;
 	node->next = hash->buckets[node->hash % hash->size];
 	hash->buckets[node->hash % hash->size] = node;
+}
+
+extern void hash_delete(hash_t hash, hash_key_t key)
+{
+	struct hash_node *prev, *node = find_node(hash, key, &prev);
+	if (node == NULL) {
+		return;
+	}
+
+	if (prev == NULL) {
+		hash->buckets[node->hash % hash->size] = node->next;
+	} else {
+		prev->next = node->next;
+	}
+	free_hash_node(node);
 }

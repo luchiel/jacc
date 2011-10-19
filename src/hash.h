@@ -10,4 +10,5 @@ extern void hash_destroy(hash_t hash);
 
 extern hash_value_t hash_get(hash_t hash, hash_key_t key);
 extern void hash_set(hash_t hash, hash_key_t key, hash_value_t value);
+extern void hash_delete(hash_t hash, hash_key_t key);
 #endif
