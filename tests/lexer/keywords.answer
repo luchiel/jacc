@@ -25,3 +25,5 @@ Line	Text	Value	Type
 24:1	union		UNION
 25:1	void		VOID
 26:1	while		WHILE
+27:1	signed		SIGNED
+28:1	unsigned		UNSIGNED
