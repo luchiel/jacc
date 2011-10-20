@@ -13,6 +13,13 @@
 	gc_add(parser_gc, var_name); \
 	((struct node*)(var_name))->type = (enum_type);
 
+#define ALLOC_LIST_NODE(var_name) \
+	ALLOC_NODE_EX(NT_LIST, var_name, list_node) \
+	(var_name)->size = 0; \
+	(var_name)->capacity = 0; \
+	(var_name)->items = NULL; \
+	list_node_ensure_capacity((var_name), 4);
+
 #define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
 #define CONSUME(token_type) { EXPECT(token_type); next_token(); }
 
@@ -65,6 +72,17 @@ static void unexpected_token(const char *string)
 	log_set_pos(token.line, token.column);
 	log_error(buf);
 	string = string;
+}
+
+static void list_node_ensure_capacity(struct list_node* list, int new_capacity)
+{
+	if (list->capacity < new_capacity) {
+		list->capacity *= 2;
+		if (list->capacity < new_capacity) {
+			list->capacity = new_capacity;
+		}
+		list->items = jacc_realloc(list->items, list->capacity * sizeof(*list->items));
+	}
 }
 
 static struct node *parse_ident()
@@ -509,18 +527,13 @@ static struct node *parse_stmt()
 	case TOK_LBRACE:
 	{
 		CONSUME(TOK_LBRACE)
-		if (accept(TOK_RBRACE)) {
-			return parse_nop();
-		}
-		struct node *node;
-		PARSE(node, stmt)
+		ALLOC_LIST_NODE(list_node)
 		while (!accept(TOK_RBRACE)) {
-			ALLOC_NODE(NT_LIST, list_node)
-			list_node->ops[0] = node;
-			PARSE(list_node->ops[1], stmt)
-			node = (struct node*)list_node;
+			list_node->size++;
+			list_node_ensure_capacity(list_node, list_node->size);
+			PARSE(list_node->items[list_node->size - 1], stmt)
 		}
-		return node;
+		return (struct node*)list_node;
 	}
 	case TOK_BREAK:
 	{
@@ -624,7 +637,7 @@ extern void parser_free_node(struct node *node)
 	}
 
 	for (i = 0; i < parser_node_info(node)->op_count; i++) {
-		parser_free_node(node->ops[i]);
+		parser_free_node(parser_get_subnode(node, i));
 	}
 
 	switch (node->type)
@@ -633,6 +646,9 @@ extern void parser_free_node(struct node *node)
 	case NT_IDENT:
 		jacc_free(((struct string_node*)node)->value);
 		break;
+	case NT_LIST:
+		free(((struct list_node*)node)->items);
+		break;
 	}
 	jacc_free(node);
 }
@@ -640,4 +656,20 @@ extern void parser_free_node(struct node *node)
 extern struct node_info *parser_node_info(struct node *node)
 {
 	return &nodes_info[node->type];
+}
+
+extern int parser_node_subnodes_count(struct node *node)
+{
+	if (node->type == NT_LIST) {
+		return ((struct list_node*)node)->size;
+	}
+	return parser_node_info(node)->op_count;
+}
+
+extern struct node *parser_get_subnode(struct node *node, int index)
+{
+	if (node->type == NT_LIST) {
+		return ((struct list_node*)node)->items[index];
+	}
+	return node->ops[index];
 }

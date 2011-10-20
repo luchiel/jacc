@@ -128,8 +128,9 @@ void print_node(struct node *node, int level)
         break;
     }
 
-    for (i = 0; i < info->op_count; i++) {
-        print_branch(node->ops[i], level, i == info->op_count - 1);
+    int op_count = parser_node_subnodes_count(node);
+    for (i = 0; i < op_count; i++) {
+        print_branch(parser_get_subnode(node, i), level, i == op_count - 1);
     }
 }
 

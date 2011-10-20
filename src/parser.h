@@ -49,6 +49,13 @@ struct string_node {
 	char *value;
 };
 
+struct list_node {
+	struct node base;
+	struct node **items;
+	int size;
+	int capacity;
+};
+
 #define NODE(name, str, cat, op_cnt) \
 struct node_NT_##name { \
 	enum node_type type; \
@@ -68,5 +75,7 @@ extern struct node *parser_parse_statement();
 
 extern void parser_free_node(struct node *node);
 extern struct node_info *parser_node_info(struct node *node);
+extern int parser_node_subnodes_count(struct node *node);
+extern struct node *parser_get_subnode(struct node *node, int index);
 
 #endif
