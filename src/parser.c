@@ -177,7 +177,7 @@ static struct node *parse_postfix_expr()
 		case TOK_LPAREN:
 		case TOK_LBRACKET:
 		{
-			ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node)
+			ALLOC_NODE_EX(get_postfix_node_type(), unode, binary_node)
 			unode->ops[0] = node;
 			next_token();
 
