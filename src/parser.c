@@ -13,13 +13,6 @@
 	gc_add(parser_gc, var_name); \
 	((struct node*)(var_name))->type = (enum_type);
 
-#define ALLOC_LIST_NODE(var_name) \
-	ALLOC_NODE_EX(NT_LIST, var_name, list_node) \
-	(var_name)->size = 0; \
-	(var_name)->capacity = 0; \
-	(var_name)->items = NULL; \
-	list_node_ensure_capacity((var_name), 4);
-
 #define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
 #define CONSUME(token_type) { EXPECT(token_type); next_token(); }
 
@@ -83,6 +76,16 @@ static void list_node_ensure_capacity(struct list_node* list, int new_capacity)
 		}
 		list->items = jacc_realloc(list->items, list->capacity * sizeof(*list->items));
 	}
+}
+
+struct list_node* alloc_list_node()
+{
+	ALLOC_NODE_EX(NT_LIST, node, list_node)
+	node->size = 0;
+	node->capacity = 0;
+	node->items = NULL;
+	list_node_ensure_capacity(node, 4);
+	return node;
 }
 
 static struct node *parse_ident()
@@ -527,7 +530,7 @@ static struct node *parse_stmt()
 	case TOK_LBRACE:
 	{
 		CONSUME(TOK_LBRACE)
-		ALLOC_LIST_NODE(list_node)
+		struct list_node* list_node = alloc_list_node();
 		while (!accept(TOK_RBRACE)) {
 			list_node->size++;
 			list_node_ensure_capacity(list_node, list_node->size);
