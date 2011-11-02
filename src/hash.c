@@ -4,6 +4,7 @@
 #include "hash.h"
 #include "memory.h"
 
+typedef char int8_t;
 typedef unsigned char uint8_t;
 typedef unsigned long uint32_t;
 
@@ -24,9 +25,9 @@ struct hash_data {
  * MurmurHash3
 */
 
-static inline uint32_t rotl32( uint32_t x, int8_t r )
+static inline uint32_t rotl32(uint32_t x, int8_t r)
 {
-  return (x << r) | (x >> (32 - r));
+	return (x << r) | (x >> (32 - r));
 }
 
 static uint32_t compute_hash(const void *key)
@@ -111,7 +112,7 @@ static struct hash_node *find_node(hash_t hash, hash_key_t key, struct hash_node
 {
 	uint32_t key_hash = compute_hash(key);
 	struct hash_node *node = hash->buckets[key_hash % hash->size];
-	
+
 	if (prev != NULL) {
 		*prev = NULL;
 	}
