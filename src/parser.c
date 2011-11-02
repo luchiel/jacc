@@ -3,14 +3,14 @@
 #include "lexer.h"
 #include "parser.h"
 #include "log.h"
-#include "gc.h"
+#include "pull.h"
 
 #define ALLOC_NODE(enum_type, var_name) \
 	ALLOC_NODE_EX(enum_type, var_name, node_##enum_type)
 
 #define ALLOC_NODE_EX(enum_type, var_name, struct_name) \
 	struct struct_name *var_name = jacc_malloc(sizeof(*var_name)); \
-	gc_add(parser_gc, var_name); \
+	pull_add(parser_pull, var_name); \
 	((struct node*)(var_name))->type = (enum_type);
 
 #define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
@@ -19,7 +19,7 @@
 #define PARSE_CHECK(expr) if ((expr) == NULL) return NULL;
 #define PARSE(target, rule, ...) { (target) = parse_##rule(__VA_ARGS__); PARSE_CHECK(target); }
 
-gc_t parser_gc;
+pull_t parser_pull;
 
 struct token token;
 struct token token_next;
@@ -95,7 +95,7 @@ static struct node *parse_ident()
 	node->value = token.value.str_val;
 	token.value.str_val = NULL;
 	next_token();
-	gc_add(parser_gc, node->value);
+	pull_add(parser_pull, node->value);
 	return (struct node*)node;
 }
 
@@ -116,7 +116,7 @@ static struct node *parse_primary_expr()
 		node->value = token.value.str_val;
 		token.value.str_val = NULL;
 		next_token();
-		gc_add(parser_gc, node->value);
+		pull_add(parser_pull, node->value);
 		return (struct node*)node;
 	}
 	case TOK_IDENT:
@@ -598,7 +598,7 @@ static struct node *parse_stmt()
 
 extern void parser_init()
 {
-	parser_gc = gc_create();
+	parser_pull = pull_create();
 	token.type = TOK_ERROR;
 	token_next.type = TOK_ERROR;
 	next_token();
@@ -607,18 +607,18 @@ extern void parser_init()
 
 extern void parser_destroy()
 {
-	gc_destroy(parser_gc);
+	pull_destroy(parser_pull);
 	lexer_token_free_data(&token);
 }
 
 static struct node *safe_parsing(struct node *node)
 {
 	if (node == NULL) {
-		gc_free_objects(parser_gc);
+		pull_free_objects(parser_pull);
 		return NULL;
 	}
 	EXPECT(TOK_EOS)
-	gc_clear(parser_gc);
+	pull_clear(parser_pull);
 	return node;
 }
 

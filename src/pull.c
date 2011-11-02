@@ -1,41 +1,41 @@
 #include <stdlib.h>
 #include "memory.h"
-#include "gc.h"
+#include "pull.h"
 
-#define GC_BLOCK_CAPACITY 248
+#define pull_BLOCK_CAPACITY 248
 
-struct gc_block {
-	void *ptrs[GC_BLOCK_CAPACITY];
+struct pull_block {
+	void *ptrs[pull_BLOCK_CAPACITY];
 	int size;
-	struct gc_block *next;
+	struct pull_block *next;
 };
 
-struct gc_data {
-	struct gc_block *head;
+struct pull_data {
+	struct pull_block *head;
 };
 
-extern gc_t gc_create()
+extern pull_t pull_create()
 {
-	struct gc_data *data = jacc_malloc(sizeof(*data));
+	struct pull_data *data = jacc_malloc(sizeof(*data));
 	data->head = jacc_malloc(sizeof(*data->head));
 	data->head->next = NULL;
 	data->head->size = 0;
-	return (gc_t)data;
+	return (pull_t)data;
 }
 
-extern void gc_destroy(gc_t gc)
+extern void pull_destroy(pull_t gc)
 {
-	gc_clear(gc);
+	pull_clear(gc);
 	jacc_free(gc->head);
 	jacc_free(gc);
 }
 
-extern void gc_add(gc_t gc, void *ptr)
+extern void pull_add(pull_t gc, void *ptr)
 {
-	struct gc_block *block = gc->head;
+	struct pull_block *block = gc->head;
 	block->ptrs[block->size] = ptr;
 	block->size++;
-	if (block->size == GC_BLOCK_CAPACITY) {
+	if (block->size == pull_BLOCK_CAPACITY) {
 		block = jacc_malloc(sizeof(*block));
 		block->size = 0;
 		block->next = gc->head;
@@ -43,9 +43,9 @@ extern void gc_add(gc_t gc, void *ptr)
 	}
 }
 
-extern void gc_clear(gc_t gc)
+extern void pull_clear(pull_t gc)
 {
-	struct gc_block *block, *next_block;
+	struct pull_block *block, *next_block;
 	block = gc->head->next;
 	while (block) {
 		next_block = block->next;
@@ -56,9 +56,9 @@ extern void gc_clear(gc_t gc)
 	gc->head->next = NULL;
 }
 
-extern void gc_free_objects(gc_t gc)
+extern void pull_free_objects(pull_t gc)
 {
-	struct gc_block *block = gc->head;
+	struct pull_block *block = gc->head;
 	int i;
 	while (block) {
 		for (i = 0; i < block->size; i++) {
@@ -66,5 +66,5 @@ extern void gc_free_objects(gc_t gc)
 		}
 		block = block->next;
 	}
-	gc_clear(gc);
+	pull_clear(gc);
 }
