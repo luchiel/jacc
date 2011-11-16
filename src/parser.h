@@ -2,10 +2,10 @@
 #define JACC_PARSER_H
 
 #define DEFINE_NODE_TYPE(name, op_count) \
-	struct name { \
- 		struct node base; \
-		struct node *ops[op_count]; \
- 	};
+    struct name { \
+        struct node base; \
+        struct node *ops[op_count]; \
+    };
 
 enum node_type {
 #define NODE(name, str, cat, op_cnt) NT_##name,
@@ -14,52 +14,52 @@ enum node_type {
 };
 
 enum node_category {
-	NC_UNARY,
-	NC_BINARY,
-	NC_TERNARY,
-	NC_ATOM,
-	NC_STATEMENT,
+    NC_UNARY,
+    NC_BINARY,
+    NC_TERNARY,
+    NC_ATOM,
+    NC_STATEMENT,
 
-	NC_UNKNOWN,
+    NC_UNKNOWN,
 };
 
 struct node_info {
-	const char *repr;
-	enum node_category cat;
-	int op_count;
+    const char *repr;
+    enum node_category cat;
+    int op_count;
 };
 
 struct node {
-	enum node_type type;
-	struct node *ops[0];
+    enum node_type type;
+    struct node *ops[0];
 };
 
 struct int_node {
-	struct node base;
-	int value;
+    struct node base;
+    int value;
 };
 
 struct double_node {
-	struct node base;
-	double value;
+    struct node base;
+    double value;
 };
 
 struct string_node {
-	struct node base;
-	char *value;
+    struct node base;
+    char *value;
 };
 
 struct list_node {
-	struct node base;
-	struct node **items;
-	int size;
-	int capacity;
+    struct node base;
+    struct node **items;
+    int size;
+    int capacity;
 };
 
 #define NODE(name, str, cat, op_cnt) \
 struct node_NT_##name { \
-	enum node_type type; \
-	struct node *ops[op_cnt]; \
+    enum node_type type; \
+    struct node *ops[op_cnt]; \
 };
 #include "nodes.def"
 #undef NODE
