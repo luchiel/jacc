@@ -20,7 +20,6 @@ struct symtable_list_node {
 struct symtable_data {
     int size;
     struct symtable_node **buckets;
-    struct symtable_data *parent;
     struct symtable_list_node *list_head;
     struct symtable_list_node *list_tail;
 };
@@ -35,11 +34,10 @@ static int compute_hash(const char *key)
     return hash;
 }
 
-extern symtable_t symtable_create(int size, symtable_t parent)
+extern symtable_t symtable_create(int size)
 {
     symtable_t symtable = jacc_malloc(sizeof(*symtable));
     symtable->size = size;
-    symtable->parent = parent;
     symtable->list_head = NULL;
     symtable->list_tail = NULL;
     symtable->buckets = jacc_malloc(size * sizeof(*symtable->buckets));
@@ -52,7 +50,7 @@ static void free_symtable_node(struct symtable_node *node)
     jacc_free(node);
 }
 
-extern void symtable_destroy(symtable_t symtable)
+extern void symtable_destroy(symtable_t symtable, int free_nodes)
 {
     int i;
     struct symtable_node *node, *prev;
@@ -61,7 +59,9 @@ extern void symtable_destroy(symtable_t symtable)
         while (node != NULL) {
             prev = node;
             node = node->next;
-            free_symtable_node(prev);
+            if (free_nodes) {
+                free_symtable_node(prev);
+            }
         }
     }
     struct symtable_list_node *lprev, *lnode;
@@ -85,10 +85,6 @@ static struct symtable_node *find_node(symtable_t symtable, symtable_key_t key)
             return node;
         }
         node = node->next;
-    }
-
-    if (symtable->parent != NULL) {
-        return find_node(symtable->parent, key);
     }
     return NULL;
 }

@@ -19,6 +19,11 @@
 #define PARSE_CHECK(expr) if ((expr) == NULL) return NULL;
 #define PARSE(target, rule, ...) { (target) = parse_##rule(__VA_ARGS__); PARSE_CHECK(target); }
 
+#define SYMTABLE_MAX_DEPTH 255
+symtable_t symtables[SYMTABLE_MAX_DEPTH];
+int current_symtable;
+struct symbol sym_null, sym_void, sym_int, sym_float, sym_double, sym_char;
+
 pull_t parser_pull;
 
 struct token token;
@@ -29,6 +34,28 @@ struct node_info nodes_info[] = {
 #include "nodes.def"
 #undef NODE
 };
+
+void push_symtable()
+{
+    current_symtable++;
+    symtables[current_symtable] = symtable_create(100);
+    pull_add(parser_pull, symtables[current_symtable]);
+}
+
+void pop_symtable()
+{
+    current_symtable--;
+}
+
+void put_symbol(const char *name, struct symbol *symbol)
+{
+    symtable_set(symtables[current_symtable], name, symbol);
+}
+
+struct symbol *get_type_symbol(const char *name)
+{
+    return symtable_get(symtables[current_symtable], name);
+}
 
 static struct node *parse_expr(int level);
 static struct node *parse_cast_expr();
@@ -54,6 +81,12 @@ static int accept(enum token_type type)
     return 0;
 }
 
+static void parser_error(const char *message)
+{
+    log_set_pos(token.line, token.column);
+    log_error(message);
+}
+
 static void unexpected_token(const char *string)
 {
     char buf[255];
@@ -62,9 +95,7 @@ static void unexpected_token(const char *string)
     } else {
         sprintf(buf, "unexpected token %s, expected %s", lexer_token_type_name(token.type), string);
     }
-    log_set_pos(token.line, token.column);
-    log_error(buf);
-    string = string;
+    parser_error(buf);
 }
 
 static void list_node_ensure_capacity(struct list_node* list, int new_capacity)
@@ -596,9 +627,188 @@ static struct node *parse_stmt()
     }
 }
 
+static int parse_type_qualifier();
+
+static struct symbol *parse_declarator(struct symbol *base_type, const char **name);
+static struct symbol *parse_declarator_base(const char **name);
+static int parse_specifier_qualifier_list();
+static struct symbol *parse_type_specifier();
+
+static struct symbol *parse_array_declarator(struct symbol *base_type)
+{
+    struct symbol *array = jacc_malloc(sizeof(*array));
+    array->type = ST_ARRAY;
+    array->expr = NULL;
+
+    CONSUME(TOK_LBRACKET)
+    if (!accept(TOK_RBRACKET)) {
+        PARSE(array->expr, const_expr)
+        CONSUME(TOK_RBRACKET)
+    }
+
+    if (token.type == TOK_LBRACKET) {
+        PARSE(array->base_type, array_declarator, base_type)
+    } else {
+        array->base_type = base_type;
+    }
+    return array;
+}
+
+static struct symbol *get_root_type(struct symbol *symbol)
+{
+    while (symbol->base_type != &sym_null) {
+        symbol = symbol->base_type;
+    }
+    return symbol;
+}
+
+static struct symbol *parse_declarator_base(const char **name)
+{
+    struct symbol *inner_symbol = &sym_null, *outer_symbol = &sym_null;
+    while (token.type == TOK_STAR) {
+        struct symbol *pointer = jacc_malloc(sizeof(*pointer));
+        pointer->type = ST_POINTER;
+        pointer->base_type = outer_symbol;
+        outer_symbol = pointer;
+        next_token();
+    }
+
+    switch (token.type) {
+    case TOK_IDENT:
+        *name = token.value.str_val;
+        token.value.str_val = NULL;
+        next_token();
+        break;
+    case TOK_LPAREN:
+        CONSUME(TOK_LPAREN)
+        PARSE(inner_symbol, declarator_base, name)
+        CONSUME(TOK_RPAREN)
+        break;
+    }
+
+    if (token.type == TOK_LBRACKET) {
+        outer_symbol = parse_array_declarator(outer_symbol);
+    }
+
+    if (inner_symbol != &sym_null) {
+        get_root_type(inner_symbol)->base_type = outer_symbol;
+        return inner_symbol;
+    }
+    return outer_symbol;
+}
+
+static struct symbol *parse_declarator(struct symbol *base_type, const char **name)
+{
+    struct symbol *symbol;
+    PARSE(symbol, declarator_base, name);
+    if (symbol == &sym_null) {
+        return base_type;
+    }
+    get_root_type(symbol)->base_type = base_type;
+    return symbol;
+}
+
+static struct symbol *parse_type_specifier()
+{
+    switch (token.type) {
+    case TOK_VOID:
+        next_token();
+        return (struct symbol*)&sym_void;
+    case TOK_CHAR:
+        next_token();
+        return (struct symbol*)&sym_char;
+    case TOK_INT:
+        next_token();
+        return (struct symbol*)&sym_int;
+    case TOK_FLOAT:
+        next_token();
+        return (struct symbol*)&sym_float;
+    case TOK_DOUBLE:
+        next_token();
+        return (struct symbol*)&sym_double;
+    case TOK_IDENT:
+    {
+        struct symbol *symbol = get_type_symbol(token.value.str_val);
+        if (symbol == NULL) {
+            parser_error("typename expected");
+            return NULL;
+        }
+        next_token();
+        return symbol;
+    }
+    }
+    return NULL;
+}
+
+static int parse_type_qualifier()
+{
+    return accept(TOK_CONST);
+}
+
+static struct symbol *parse_declaration_specifiers()
+{
+    accept(TOK_EXTERN) || accept(TOK_STATIC);
+    parse_type_qualifier();
+    return parse_type_specifier();
+}
+
+static int parse_specifier_qualifier_list()
+{
+    parse_type_qualifier();
+    return parse_type_specifier();
+}
+
+static struct node *parse_initializer()
+{
+    return parse_assign_expr();
+}
+
+static struct node *parse_declaration()
+{
+    accept(TOK_TYPEDEF);
+    struct symbol* base_type;
+    PARSE(base_type, declaration_specifiers)
+
+    struct symbol *symbol;
+    do {
+        symbol = jacc_malloc(sizeof(*symbol));
+        symbol->type = ST_VARIABLE;
+        symbol->name = NULL;
+        symbol->expr = NULL;
+        PARSE(symbol->base_type, declarator, base_type, &symbol->name)
+        if (symbol->name == NULL) {
+            parser_error("expected non-abstract declarator");
+            return NULL;
+        }
+        if (accept(TOK_ASSIGN)) {
+            PARSE(symbol->expr, initializer)
+        }
+        put_symbol(symbol->name, symbol);
+    } while (accept(TOK_COMMA));
+
+    CONSUME(TOK_SEMICOLON)
+    return (struct node*)1;
+}
+
+static void init_type(const char *name, struct symbol *symbol)
+{
+    symbol->name = name;
+    symbol->type = ST_SCALAR_TYPE;
+    put_symbol(name, (struct symbol*)symbol);
+}
+
 extern void parser_init()
 {
     parser_pull = pull_create();
+    current_symtable = 0;
+    symtables[0] = symtable_create(16);
+
+    init_type("void", &sym_void);
+    init_type("int", &sym_int);
+    init_type("float", &sym_float);
+    init_type("double", &sym_double);
+    init_type("char", &sym_char);
+
     token.type = TOK_ERROR;
     token_next.type = TOK_ERROR;
     next_token();
@@ -607,6 +817,7 @@ extern void parser_init()
 
 extern void parser_destroy()
 {
+    symtable_destroy(symtables[0], 0);
     pull_destroy(parser_pull);
     lexer_token_free_data(&token);
 }
@@ -630,6 +841,21 @@ extern struct node *parser_parse_expr()
 extern struct node *parser_parse_statement()
 {
     return safe_parsing(parse_stmt());
+}
+
+extern symtable_t parser_parse()
+{
+    push_symtable();
+    while (!accept(TOK_EOS)) {
+        if (parse_declaration() == NULL) {
+            printf("FAIL\n");
+            pull_clear(parser_pull);
+            return NULL;
+        }
+    }
+    EXPECT(TOK_EOS);
+    pull_clear(parser_pull);
+    return symtables[1];
 }
 
 extern void parser_free_node(struct node *node)
@@ -675,4 +901,9 @@ extern struct node *parser_get_subnode(struct node *node, int index)
         return ((struct list_node*)node)->items[index];
     }
     return node->ops[index];
+}
+
+extern int parser_is_void_symbol(struct symbol *symbol)
+{
+    return symbol == &sym_void;
 }

@@ -1,13 +1,31 @@
 #ifndef JACC_SYMTABLE_H
 #define JACC_SYMTABLE_H
 
+enum symbol_type {
+    ST_VARIABLE,
+    ST_FUNCTION,
+    ST_SCALAR_TYPE,
+    ST_ARRAY,
+    ST_POINTER,
+};
+
 typedef struct symtable_data *symtable_t;
-typedef char *symtable_key_t;
-typedef void *symtable_value_t;
+
+struct symbol {
+    enum symbol_type type;
+    const char *name;
+    struct symbol *base_type;
+    struct symbol *temp_symbol;
+    struct node *expr;
+    symtable_t symtable;
+};
+
+typedef const char *symtable_key_t;
+typedef struct symbol *symtable_value_t;
 typedef struct symtable_list_node *symtable_iter_t;
 
 extern symtable_t symtable_create();
-extern void symtable_destroy(symtable_t symtable);
+extern void symtable_destroy(symtable_t symtable, int free_nodes);
 
 extern symtable_value_t symtable_get(symtable_t symtable, symtable_key_t key);
 extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_value_t value);

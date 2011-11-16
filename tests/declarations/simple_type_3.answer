@@ -1,0 +1,31 @@
+a is variable of type <array [
+   (1)
+] of int>
+
+b is variable of type <array [
+   (+)
+    |
+    +-(7)
+    |
+    +-(2)
+] of int>
+
+c is variable of type <array [
+   (*)
+    |
+    +-(?:)
+    |  |
+    |  +-(7)
+    |  |
+    |  +-(2)
+    |  |
+    |  +-(11)
+    |
+    +-(2)
+] of int>
+
+d is variable of type <array [
+   (1)
+] of array [
+   (2)
+] of int>

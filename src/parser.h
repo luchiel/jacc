@@ -1,6 +1,8 @@
 #ifndef JACC_PARSER_H
 #define JACC_PARSER_H
 
+#include "symtable.h"
+
 #define DEFINE_NODE_TYPE(name, op_count) \
     struct name { \
         struct node base; \
@@ -72,10 +74,13 @@ extern void parser_destroy();
 
 extern struct node *parser_parse_expr();
 extern struct node *parser_parse_statement();
+extern symtable_t parser_parse();
 
 extern void parser_free_node(struct node *node);
 extern struct node_info *parser_node_info(struct node *node);
 extern int parser_node_subnodes_count(struct node *node);
 extern struct node *parser_get_subnode(struct node *node, int index);
+
+extern int parser_is_void_symbol(struct symbol *symbol);
 
 #endif

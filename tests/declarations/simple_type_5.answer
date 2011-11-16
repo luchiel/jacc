@@ -1,0 +1,9 @@
+a is variable of type <pointer to array [
+   (3)
+] of int>
+
+b is variable of type <array [
+   (5)
+] of pointer to array [
+   (3)
+] of pointer to int>

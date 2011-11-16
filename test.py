@@ -9,6 +9,7 @@ tests = {
     'lexer': 'jacc lex "%(input)s" > "%(output)s" 2>&1',
     'expressions': 'jacc parse_expr "%(input)s" > "%(output)s" 2>&1',
     'statements': 'jacc parse_stmt "%(input)s" > "%(output)s" 2>&1',
+    'declarations': 'jacc parse "%(input)s" > "%(output)s" 2>&1',
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))
