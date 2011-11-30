@@ -1,0 +1,15 @@
+a is function taking (
+   <int> as a
+   <char> as b
+) returning <int>
+
+b is function taking (
+   <pointer to function returning <int>> as @arg1
+) returning <int>
+
+c is variadic function returning <int>
+
+d is variadic function taking (
+   <int> as @arg2
+   <char> as @arg3
+) returning <int>

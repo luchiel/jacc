@@ -120,17 +120,48 @@ void print_symbol(struct symbol *symbol, int level)
         print_symbol(symbol->base_type, level);
         break;
     case ST_FUNCTION:
-        printf("function returning ");
+        if ((symbol->flags & SF_VARIADIC) == SF_VARIADIC) {
+            printf("variadic ");
+        }
+        printf("function ");
+        if (symtable_size(symbol->symtable) > 0) {
+            printf("taking (\n");
+            symtable_iter_t iter = symtable_first(symbol->symtable);
+            for (; iter != NULL; iter = symtable_iter_next(iter)) {
+                print_indent(level + 1);
+                print_symbol(symtable_iter_value(iter), level + 1);
+                printf("\n");
+            }
+            printf(") ");
+        }
+
+        printf("returning ");
         if (parser_is_void_symbol(symbol->base_type)) {
             printf("nothing");
         } else {
+            printf("<");
             print_symbol(symbol->base_type, level);
+            printf(">");
+        }
+        if (symbol->expr != NULL) {
+            printf(" defined as {\n");
+            show_indents[level + 1] = 0;
+            print_node(symbol->expr, level + 1, 1);
+            printf("}");
         }
         break;
     case ST_VARIABLE:
         printf("variable of type <");
         print_symbol(symbol->base_type, level);
         printf(">");
+        break;
+    case ST_PARAMETER:
+        printf("<");
+        print_symbol(symbol->base_type, level);
+        printf(">");
+        if (symbol->name != NULL) {
+            printf(" as %s", symbol->name);
+        }
         break;
     default:
         printf("unknown symbol");

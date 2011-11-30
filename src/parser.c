@@ -20,8 +20,11 @@
 #define PARSE(target, rule, ...) { (target) = parse_##rule(__VA_ARGS__); PARSE_CHECK(target); }
 
 #define SYMTABLE_MAX_DEPTH 255
+#define SYMTABLE_DEFAULT_SIZE 16
+
 symtable_t symtables[SYMTABLE_MAX_DEPTH];
 int current_symtable;
+int name_uid = 0;
 struct symbol sym_null, sym_void, sym_int, sym_float, sym_double, sym_char;
 
 pull_t parser_pull;
@@ -35,10 +38,22 @@ struct node_info nodes_info[] = {
 #undef NODE
 };
 
+char* generate_name(const char *prefix)
+{
+    char *buf = jacc_malloc(16);
+    sprintf(buf, "%s%d", prefix, ++name_uid);
+    return buf;
+}
+
+symtable_t get_current_symtable()
+{
+    return symtables[current_symtable];
+}
+
 void push_symtable()
 {
     current_symtable++;
-    symtables[current_symtable] = symtable_create(100);
+    symtables[current_symtable] = symtable_create(SYMTABLE_DEFAULT_SIZE);
     pull_add(parser_pull, symtables[current_symtable]);
 }
 
@@ -654,6 +669,43 @@ static struct symbol *parse_array_declarator(struct symbol *base_type)
     return array;
 }
 
+static struct symbol *parse_function_declarator(struct symbol *base_type)
+{
+    struct symbol *func = jacc_malloc(sizeof(*func));
+    func->type = ST_FUNCTION;
+    func->base_type = base_type;
+    func->flags = 0;
+
+    push_symtable();
+    func->symtable = get_current_symtable();
+
+    CONSUME(TOK_LPAREN)
+    if (token.type != TOK_RPAREN) {
+        do {
+            if (accept(TOK_ELLIPSIS)) {
+                func->flags |= SF_VARIADIC;
+                break;
+            }
+
+            struct symbol *parameter = jacc_malloc(sizeof(*parameter));
+
+            parameter->name = NULL;
+            parameter->type = ST_PARAMETER;
+
+            PARSE(parameter->base_type, type_specifier)
+            PARSE(parameter->base_type, declarator, parameter->base_type, &parameter->name)
+
+            if (parameter->name == NULL) {
+                parameter->name = generate_name("@arg");
+            }
+            put_symbol(parameter->name, parameter);
+        } while (accept(TOK_COMMA));
+    }
+    CONSUME(TOK_RPAREN)
+    pop_symtable();
+    return func;
+}
+
 static struct symbol *get_root_type(struct symbol *symbol)
 {
     while (symbol->base_type != &sym_null) {
@@ -688,6 +740,8 @@ static struct symbol *parse_declarator_base(const char **name)
 
     if (token.type == TOK_LBRACKET) {
         outer_symbol = parse_array_declarator(outer_symbol);
+    } else if (token.type == TOK_LPAREN) {
+        outer_symbol = parse_function_declarator(outer_symbol);
     }
 
     if (inner_symbol != &sym_null) {
@@ -766,24 +820,42 @@ static struct node *parse_initializer()
 static struct node *parse_declaration()
 {
     accept(TOK_TYPEDEF);
-    struct symbol* base_type;
+    struct symbol *base_type, *declarator;
+    const char *symbol_name;
     PARSE(base_type, declaration_specifiers)
 
     struct symbol *symbol;
     do {
-        symbol = jacc_malloc(sizeof(*symbol));
-        symbol->type = ST_VARIABLE;
-        symbol->name = NULL;
-        symbol->expr = NULL;
-        PARSE(symbol->base_type, declarator, base_type, &symbol->name)
+        PARSE(declarator, declarator, base_type, &symbol_name)
+        if (declarator->type == ST_FUNCTION) {
+            symbol = declarator;
+        } else {
+            symbol = jacc_malloc(sizeof(*symbol));
+            symbol->type = ST_VARIABLE;
+            symbol->expr = NULL;
+            symbol->base_type = declarator;
+        }
+        symbol->name = symbol_name;
+
         if (symbol->name == NULL) {
             parser_error("expected non-abstract declarator");
             return NULL;
         }
-        if (accept(TOK_ASSIGN)) {
-            PARSE(symbol->expr, initializer)
+
+        if (symbol->type == ST_FUNCTION) {
+            if (token.type == TOK_LBRACE) {
+                PARSE(symbol->expr, stmt);
+            }
+        } else {
+            if (accept(TOK_ASSIGN)) {
+                PARSE(symbol->expr, initializer)
+            }
         }
         put_symbol(symbol->name, symbol);
+
+        if (symbol->type == ST_FUNCTION && symbol->expr != NULL) {
+            return (struct node*)1;
+        }
     } while (accept(TOK_COMMA));
 
     CONSUME(TOK_SEMICOLON)
@@ -801,7 +873,7 @@ extern void parser_init()
 {
     parser_pull = pull_create();
     current_symtable = 0;
-    symtables[0] = symtable_create(16);
+    symtables[0] = symtable_create(SYMTABLE_DEFAULT_SIZE);
 
     init_type("void", &sym_void);
     init_type("int", &sym_int);

@@ -1,0 +1,4 @@
+int a(int a, char b);
+int b(int(*)());
+int c(...);
+int d(int, char, ...);

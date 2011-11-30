@@ -18,6 +18,7 @@ struct symtable_list_node {
 };
 
 struct symtable_data {
+    int capacity;
     int size;
     struct symtable_node **buckets;
     struct symtable_list_node *list_head;
@@ -34,14 +35,15 @@ static int compute_hash(const char *key)
     return hash;
 }
 
-extern symtable_t symtable_create(int size)
+extern symtable_t symtable_create(int capacity)
 {
     symtable_t symtable = jacc_malloc(sizeof(*symtable));
-    symtable->size = size;
+    symtable->capacity = capacity;
     symtable->list_head = NULL;
     symtable->list_tail = NULL;
-    symtable->buckets = jacc_malloc(size * sizeof(*symtable->buckets));
-    memset(symtable->buckets, 0, size * sizeof(*symtable->buckets));
+    symtable->size = 0;
+    symtable->buckets = jacc_malloc(capacity * sizeof(*symtable->buckets));
+    memset(symtable->buckets, 0, capacity * sizeof(*symtable->buckets));
     return symtable;
 }
 
@@ -54,7 +56,7 @@ extern void symtable_destroy(symtable_t symtable, int free_nodes)
 {
     int i;
     struct symtable_node *node, *prev;
-    for (i = 0; i < symtable->size; i++) {
+    for (i = 0; i < symtable->capacity; i++) {
         node = symtable->buckets[i];
         while (node != NULL) {
             prev = node;
@@ -75,10 +77,15 @@ extern void symtable_destroy(symtable_t symtable, int free_nodes)
     free(symtable);
 }
 
+extern int symtable_size(symtable_t symtable)
+{
+    return symtable->size;
+}
+
 static struct symtable_node *find_node(symtable_t symtable, symtable_key_t key)
 {
     int key_hash = compute_hash(key);
-    struct symtable_node *node = symtable->buckets[key_hash % symtable->size];
+    struct symtable_node *node = symtable->buckets[key_hash % symtable->capacity];
 
     while (node != NULL) {
         if (node->hash == key_hash && strcmp(node->key, key) == 0) {
@@ -110,8 +117,8 @@ extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_value
     node->hash = compute_hash(key);
     node->key = key;
     node->value = value;
-    node->next = symtable->buckets[node->hash % symtable->size];
-    symtable->buckets[node->hash % symtable->size] = node;
+    node->next = symtable->buckets[node->hash % symtable->capacity];
+    symtable->buckets[node->hash % symtable->capacity] = node;
 
     struct symtable_list_node *list_node = jacc_malloc(sizeof(*list_node));
     list_node->next = NULL;
@@ -123,6 +130,7 @@ extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_value
         symtable->list_tail->next = list_node;
         symtable->list_tail = list_node;
     }
+    symtable->size++;
 }
 
 extern symtable_iter_t symtable_first(symtable_t symtable)

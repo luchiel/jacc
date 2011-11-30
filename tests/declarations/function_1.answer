@@ -1,0 +1,4 @@
+a is function returning <int>
+b is function returning <pointer to int>
+c is function returning <int>
+d is function returning <pointer to int>
