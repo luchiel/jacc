@@ -24,7 +24,7 @@ def unlink(path):
 
 def read_file(name):
     lines = open(name, 'r').readlines()
-    return [line.strip() for line in lines]
+    return [line.strip() for line in lines if len(line.strip()) > 0]
 
 def run_tests(dir, cmd_template):
     path = os.path.join(tests_dir, dir)
