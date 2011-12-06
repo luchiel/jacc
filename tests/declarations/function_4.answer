@@ -1,0 +1,15 @@
+main is function returning <int> defined as {
+   (list)
+    |
+    +-(if)
+       |
+       +-(1)
+       |
+       +-(nop)
+       |
+       +-(nop)
+}
+
+empty is function returning nothing defined as {
+   (list)
+}
