@@ -917,6 +917,7 @@ extern struct node *parser_parse_statement()
 
 extern symtable_t parser_parse()
 {
+    current_symtable = 0;
     push_symtable();
     while (!accept(TOK_EOS)) {
         if (parse_declaration() == NULL) {
