@@ -1,0 +1,9 @@
+tag a is struct a defined as {
+   a is variable of type <int>
+   b is variable of type <int>
+   c is variable of type <int>
+}
+
+tag b is struct b defined as {
+   a is variable of type <pointer to struct a>
+}

@@ -10,6 +10,9 @@
 
 int show_indents[255];
 
+void print_node(struct node *node, int level, int root);
+void print_symtable(symtable_t symtable, int level);
+
 char *simple_commands[] = {
     "lex",
     "parse_expr",
@@ -86,8 +89,6 @@ void print_node_indent(int level, int root)
     }
 }
 
-void print_node(struct node *node, int level, int root);
-
 void print_branch(struct node *node, int level, int last)
 {
     print_indent(level + 1);
@@ -98,7 +99,7 @@ void print_branch(struct node *node, int level, int last)
     print_node(node, level + 1, 0);
 }
 
-void print_symbol(struct symbol *symbol, int level)
+void print_symbol(struct symbol *symbol, int level, int depth)
 {
     switch (symbol->type) {
     case ST_SCALAR_TYPE:
@@ -106,7 +107,7 @@ void print_symbol(struct symbol *symbol, int level)
         break;
     case ST_POINTER:
         printf("pointer to ");
-        print_symbol(symbol->base_type, level);
+        print_symbol(symbol->base_type, level, depth + 1);
         break;
     case ST_ARRAY:
         printf("array");
@@ -117,7 +118,7 @@ void print_symbol(struct symbol *symbol, int level)
             printf("]");
         }
         printf(" of ");
-        print_symbol(symbol->base_type, level);
+        print_symbol(symbol->base_type, level, depth + 1);
         break;
     case ST_FUNCTION:
         if ((symbol->flags & SF_VARIADIC) == SF_VARIADIC) {
@@ -129,7 +130,7 @@ void print_symbol(struct symbol *symbol, int level)
             symtable_iter_t iter = symtable_first(symbol->symtable);
             for (; iter != NULL; iter = symtable_iter_next(iter)) {
                 print_indent(level + 1);
-                print_symbol(symtable_iter_value(iter), level + 1);
+                print_symbol(symtable_iter_value(iter), level + 1, 0);
                 printf("\n");
             }
             printf(") ");
@@ -140,7 +141,7 @@ void print_symbol(struct symbol *symbol, int level)
             printf("nothing");
         } else {
             printf("<");
-            print_symbol(symbol->base_type, level);
+            print_symbol(symbol->base_type, level, 0);
             printf(">");
         }
         if (symbol->expr != NULL) {
@@ -152,15 +153,25 @@ void print_symbol(struct symbol *symbol, int level)
         break;
     case ST_VARIABLE:
         printf("variable of type <");
-        print_symbol(symbol->base_type, level);
+        print_symbol(symbol->base_type, level, depth + 1);
         printf(">");
         break;
     case ST_PARAMETER:
         printf("<");
-        print_symbol(symbol->base_type, level);
+        print_symbol(symbol->base_type, level, depth + 1);
         printf(">");
         if (symbol->name != NULL) {
             printf(" as %s", symbol->name);
+        }
+        break;
+    case ST_STRUCT:
+    case ST_UNION:
+        printf("%s %s", symbol->type == ST_STRUCT ? "struct" : "union", symbol->name);
+        if (symbol->symtable != NULL && depth == 0) {
+            printf(" defined as {\n");
+            print_symtable(symbol->symtable, level + 1);
+            print_indent(level);
+            printf("}");
         }
         break;
     default:
@@ -172,10 +183,15 @@ void print_symtable(symtable_t symtable, int level)
 {
     symtable_iter_t iter = symtable_first(symtable);
     show_indents[level] = 0;
-    print_indent(level);
     for (; iter != NULL; iter = symtable_iter_next(iter)) {
+        print_indent(level);
+        switch (symtable_iter_key2(iter)) {
+        case SC_TAG:
+            printf("tag ");
+            break;
+        }
         printf("%s is ", symtable_iter_key(iter));
-        print_symbol(symtable_iter_value(iter), level);
+        print_symbol(symtable_iter_value(iter), level, 0);
         printf("\n");
     }
 }

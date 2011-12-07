@@ -1,0 +1,16 @@
+struct {
+    int u;
+} z;
+
+struct {
+    char t;
+};
+
+struct {
+    struct {
+        int a;
+        struct {
+            char i;
+        } s3;
+    } s2;
+} s1;

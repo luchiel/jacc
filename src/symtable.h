@@ -2,11 +2,14 @@
 #define JACC_SYMTABLE_H
 
 #define SF_VARIADIC 1
+#define SF_INCOMPLETE 2
 
 enum symbol_type {
     ST_VARIABLE,
     ST_FUNCTION,
     ST_SCALAR_TYPE,
+    ST_STRUCT,
+    ST_UNION,
     ST_ARRAY,
     ST_POINTER,
     ST_PARAMETER,

@@ -38,6 +38,11 @@ struct node_info nodes_info[] = {
 #undef NODE
 };
 
+enum declaration_type {
+    DT_GLOBAL,
+    DT_STRUCT,
+};
+
 char* generate_name(const char *prefix)
 {
     char *buf = jacc_malloc(16);
@@ -67,9 +72,16 @@ void put_symbol(const char *name, struct symbol *symbol, enum symbol_class symcl
     symtable_set(symtables[current_symtable], name, symclass, symbol);
 }
 
-struct symbol *get_type_symbol(const char *name)
+struct symbol *get_symbol(const char *name, enum symbol_class symclass)
 {
-    return symtable_get(symtables[current_symtable], name, SC_NAME);
+    int i = current_symtable;
+    for (; i >= 0; i--) {
+        struct symbol *result = symtable_get(symtables[i], name, symclass);
+        if (result != NULL) {
+            return result;
+        }
+    }
+    return NULL;
 }
 
 static struct node *parse_expr(int level);
@@ -646,14 +658,16 @@ static int parse_type_qualifier();
 
 static struct symbol *parse_declarator(struct symbol *base_type, const char **name);
 static struct symbol *parse_declarator_base(const char **name);
-static int parse_specifier_qualifier_list();
+static struct symbol *parse_specifier_qualifier_list();
 static struct symbol *parse_type_specifier();
+static struct symbol *parse_declaration(enum declaration_type decl_type);
 
 static struct symbol *parse_array_declarator(struct symbol *base_type)
 {
     struct symbol *array = jacc_malloc(sizeof(*array));
     array->type = ST_ARRAY;
     array->expr = NULL;
+    array->flags = 0;
 
     CONSUME(TOK_LBRACKET)
     if (!accept(TOK_RBRACKET)) {
@@ -721,6 +735,7 @@ static struct symbol *parse_declarator_base(const char **name)
         struct symbol *pointer = jacc_malloc(sizeof(*pointer));
         pointer->type = ST_POINTER;
         pointer->base_type = outer_symbol;
+        pointer->flags = 0;
         outer_symbol = pointer;
         next_token();
     }
@@ -749,6 +764,48 @@ static struct symbol *parse_declarator_base(const char **name)
         return inner_symbol;
     }
     return outer_symbol;
+}
+
+static struct symbol *parse_struct_or_union_specifier()
+{
+    struct symbol *symbol = jacc_malloc(sizeof(*symbol));
+    symbol->type = (token.type == TOK_STRUCT) ? ST_STRUCT : ST_UNION;
+    symbol->flags = SF_INCOMPLETE;
+    symbol->base_type = NULL;
+    symbol->name = NULL;
+    symbol->symtable = NULL;
+
+    next_token();
+
+    if (token.type == TOK_IDENT) {
+        symbol->name = token.value.str_val;
+        token.value.str_val = NULL;
+        next_token();
+
+        struct symbol *struct_tag = get_symbol(symbol->name, SC_TAG);
+        if (struct_tag != NULL) {
+            jacc_free((char*)symbol->name);
+            jacc_free(symbol);
+            symbol = struct_tag;
+        } else {
+            put_symbol(symbol->name, symbol, SC_TAG);
+        }
+    } else {
+        symbol->name = generate_name("@struct");
+        put_symbol(symbol->name, symbol, SC_TAG);
+    }
+
+    if (accept(TOK_LBRACE)) {
+        push_symtable();
+        symbol->symtable = get_current_symtable();
+
+        do {
+            struct symbol *result;
+            PARSE(result, declaration, DT_STRUCT)
+        } while (!accept(TOK_RBRACE));
+        pop_symtable();
+    }
+    return symbol;
 }
 
 static struct symbol *parse_declarator(struct symbol *base_type, const char **name)
@@ -782,7 +839,7 @@ static struct symbol *parse_type_specifier()
         return (struct symbol*)&sym_double;
     case TOK_IDENT:
     {
-        struct symbol *symbol = get_type_symbol(token.value.str_val);
+        struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
         if (symbol == NULL) {
             parser_error("typename expected");
             return NULL;
@@ -790,6 +847,9 @@ static struct symbol *parse_type_specifier()
         next_token();
         return symbol;
     }
+    case TOK_STRUCT:
+    case TOK_UNION:
+        return parse_struct_or_union_specifier();
     }
     return NULL;
 }
@@ -799,17 +859,16 @@ static int parse_type_qualifier()
     return accept(TOK_CONST);
 }
 
-static struct symbol *parse_declaration_specifiers()
+static struct symbol *parse_specifier_qualifier_list()
 {
-    accept(TOK_EXTERN) || accept(TOK_STATIC);
     parse_type_qualifier();
     return parse_type_specifier();
 }
 
-static int parse_specifier_qualifier_list()
+static struct symbol *parse_declaration_specifiers()
 {
-    parse_type_qualifier();
-    return parse_type_specifier();
+    accept(TOK_EXTERN) || accept(TOK_STATIC);
+    return parse_specifier_qualifier_list();
 }
 
 static struct node *parse_initializer()
@@ -817,15 +876,23 @@ static struct node *parse_initializer()
     return parse_assign_expr();
 }
 
-static struct node *parse_declaration()
+static struct symbol *parse_declaration(enum declaration_type decl_type)
 {
-    accept(TOK_TYPEDEF);
-    struct symbol *base_type, *declarator;
-    const char *symbol_name;
-    PARSE(base_type, declaration_specifiers)
+    struct symbol *base_type;
+    if (decl_type == DT_GLOBAL) {
+        accept(TOK_TYPEDEF);
+        PARSE(base_type, declaration_specifiers)
+    } else {
+        PARSE(base_type, specifier_qualifier_list)
+    }
 
-    struct symbol *symbol;
+    if (accept(TOK_SEMICOLON)) {
+        return &sym_null;
+    }
+
     do {
+        const char *symbol_name = NULL;
+        struct symbol *symbol, *declarator;
         PARSE(declarator, declarator, base_type, &symbol_name)
         if (declarator->type == ST_FUNCTION) {
             symbol = declarator;
@@ -854,12 +921,12 @@ static struct node *parse_declaration()
         put_symbol(symbol->name, symbol, SC_NAME);
 
         if (symbol->type == ST_FUNCTION && symbol->expr != NULL) {
-            return (struct node*)1;
+            return &sym_null;
         }
     } while (accept(TOK_COMMA));
 
     CONSUME(TOK_SEMICOLON)
-    return (struct node*)1;
+    return &sym_null;
 }
 
 static void init_type(const char *name, struct symbol *symbol)
@@ -920,7 +987,7 @@ extern symtable_t parser_parse()
     current_symtable = 0;
     push_symtable();
     while (!accept(TOK_EOS)) {
-        if (parse_declaration() == NULL) {
+        if (parse_declaration(DT_GLOBAL) == NULL) {
             printf("FAIL\n");
             pull_clear(parser_pull);
             return NULL;
