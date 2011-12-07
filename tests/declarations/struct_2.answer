@@ -1,17 +1,17 @@
-tag @struct1 is struct @struct1 defined as {
+tag "@struct1" is struct @struct1 defined as {
    u is variable of type <int>
 }
 z is variable of type <struct @struct1>
 
-tag @struct2 is struct @struct2 defined as {
+tag "@struct2" is struct @struct2 defined as {
    t is variable of type <char>
 }
 
-tag @struct3 is struct @struct3 defined as {
-   tag @struct4 is struct @struct4 defined as {
+tag "@struct3" is struct @struct3 defined as {
+   tag "@struct4" is struct @struct4 defined as {
       a is variable of type <int>
 
-      tag @struct5 is struct @struct5 defined as {
+      tag "@struct5" is struct @struct5 defined as {
          i is variable of type <char>
       }
       s3 is variable of type <struct @struct5>

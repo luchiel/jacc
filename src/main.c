@@ -192,10 +192,11 @@ void print_symtable(symtable_t symtable, int level)
         print_indent(level);
         switch (symtable_iter_key2(iter)) {
         case SC_TAG:
-            printf("tag ");
+            printf("tag \"%s\" is ", symtable_iter_key(iter));
             break;
+        default:
+            printf("%s is ", symtable_iter_key(iter));
         }
-        printf("%s is ", symtable_iter_key(iter));
         print_symbol(symtable_iter_value(iter), level, 0);
         printf("\n");
     }
