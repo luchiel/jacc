@@ -85,7 +85,7 @@ if __name__ == '__main__':
     total = 0
     total_failed = 0
     started_at = time.time()
-    for dir, cmd in tests.items():
+    for dir, cmd in sorted(tests.items()):
         stats = run_tests(dir, os.path.join(tester_dir, cmd))
 
         total += stats['total']
