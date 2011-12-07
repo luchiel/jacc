@@ -3,7 +3,7 @@ test is function taking (
 ) returning <int> defined as {
    (list)
     |
-    +-(=)
+    +-(=) -> <int>
        |
        +-(var c)
        |

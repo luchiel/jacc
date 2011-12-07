@@ -36,6 +36,7 @@ struct node_info {
 struct node {
     enum node_type type;
     symtable_t symtable;
+    struct symbol *type_sym;
     struct node *ops[0];
 };
 
@@ -69,13 +70,13 @@ struct var_node {
 struct cast_node {
     struct node base;
     struct node *ops[1];
-    struct symbol *type;
 };
 
 #define NODE(name, str, cat, op_cnt) \
 struct node_NT_##name { \
     enum node_type type; \
     symtable_t symtable; \
+    struct symbol *type_sym; \
     struct node *ops[op_cnt]; \
 };
 #include "nodes.def"

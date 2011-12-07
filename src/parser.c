@@ -27,7 +27,7 @@ symtable_t symtables[SYMTABLE_MAX_DEPTH];
 int current_symtable;
 int name_uid = 0;
 int parser_flags = 0;
-struct symbol sym_null, sym_void, sym_int, sym_float, sym_double, sym_char;
+struct symbol sym_null, sym_void, sym_int, sym_float, sym_double, sym_char, sym_char_ptr;
 
 pull_t parser_pull;
 
@@ -226,7 +226,7 @@ static struct node *parse_primary_expr()
                 return NULL;
             }
             ALLOC_NODE_EX(NT_CAST, cast_node, cast_node)
-            cast_node->type = type;
+            cast_node->base.type_sym = type;
             CONSUME(TOK_RPAREN)
             PARSE(cast_node->ops[0], cast_expr)
             node = (struct node*)cast_node;
@@ -241,6 +241,7 @@ static struct node *parse_primary_expr()
     {
         ALLOC_NODE_EX(NT_STRING, node, string_node)
         node->value = token.value.str_val;
+        node->base.type_sym = &sym_char_ptr;
         token.value.str_val = NULL;
         next_token();
         pull_add(parser_pull, node->value);
@@ -256,6 +257,7 @@ static struct node *parse_primary_expr()
                 parser_error("Expected variable type");
                 return NULL;
             }
+            var_node->base.type_sym = var_node->symbol->base_type;
             next_token();
             return (struct node*)var_node;
         } else {
@@ -266,6 +268,7 @@ static struct node *parse_primary_expr()
     {
         ALLOC_NODE_EX(NT_INT, node, int_node)
         node->value = token.value.int_val;
+        node->base.type_sym = &sym_int;
         next_token();
         return (struct node*)node;
     }
@@ -273,6 +276,7 @@ static struct node *parse_primary_expr()
     {
         ALLOC_NODE_EX(NT_DOUBLE, node, double_node)
         node->value = token.value.float_val;
+        node->base.type_sym = &sym_float;
         next_token();
         return (struct node*)node;
     }
@@ -395,6 +399,7 @@ static struct node *parse_unary_expr()
         default:
             PARSE(node->ops[0], cast_expr)
         }
+        node->base.type_sym = node->ops[0]->type_sym;
         return (struct node*)node;
     }
     }
@@ -535,6 +540,7 @@ static struct node *parse_assign_expr()
     ALLOC_NODE_EX(get_node_type(), new_node, binary_node)
     next_token();
     new_node->ops[0] = node;
+    new_node->base.type_sym = node->type_sym;
     PARSE(new_node->ops[1], assign_expr)
     return (struct node*)new_node;
 }
@@ -560,6 +566,53 @@ static struct node *parse_expr_subnode(int level)
     return NULL;
 }
 
+int is_compatible_types(struct symbol *s1, struct symbol *s2);
+
+int is_compatible_symtable(symtable_t s1, symtable_t s2)
+{
+    if (symtable_size(s1) != symtable_size(s2)) {
+        return 0;
+    }
+    symtable_iter_t iter = symtable_first(s1);
+    symtable_iter_t iter2 = symtable_first(s2);
+    for (; iter != NULL; iter = symtable_iter_next(iter), iter2 = symtable_iter_next(iter2)) {
+        if (!is_compatible_types(symtable_iter_value(iter), symtable_iter_value(iter2))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int is_compatible_types(struct symbol *s1, struct symbol *s2)
+{
+    if (s1 == NULL || s2 == NULL) {
+        return 0;
+    }
+
+    if (s1->type == ST_SCALAR_TYPE && s2->type == ST_SCALAR_TYPE) {
+        return s1 == s2;
+    }
+
+    int s1_is_ptr = s1->type == ST_POINTER || s1->type == ST_ARRAY;
+    int s2_is_ptr = s2->type == ST_POINTER || s2->type == ST_ARRAY;
+    int s1_is_variable = s1->type == ST_VARIABLE || s1->type == ST_PARAMETER;
+    int s2_is_variable = s2->type == ST_VARIABLE || s2->type == ST_PARAMETER;
+    if ((s1_is_ptr && s2_is_ptr) || (s1_is_variable && s2_is_variable)) {
+        return is_compatible_types(s1->base_type, s2->base_type);
+    }
+
+    if (s1->type == ST_FUNCTION && s2->type == ST_FUNCTION) {
+        return is_compatible_types(s1->base_type, s2->base_type)
+                && s1->flags == s2->flags
+                && is_compatible_symtable(s1->symtable, s2->symtable);
+    }
+
+    if ((s1->type == ST_STRUCT || s1->type == ST_UNION) && s1->type == s2->type) {
+        return is_compatible_symtable(s1->symtable, s2->symtable);
+    }
+    return 0;
+}
+
 static struct node *parse_expr(int level)
 {
     struct node *node;
@@ -574,6 +627,31 @@ static struct node *parse_expr(int level)
         new_node->ops[0] = node;
         PARSE(new_node->ops[1], expr_subnode, level)
         node = (struct node*)new_node;
+
+        switch (level) {
+        case 3: /* bit or */
+        case 4: /* bit xor */
+        case 5: /* bit and */
+        case 8: /* shift */
+        case 9: /* additive */
+        case 10: /* multiplicative */
+        {
+            struct symbol *t1 = new_node->ops[0]->type_sym, *t2 = new_node->ops[1]->type_sym;
+            if (is_compatible_types(t1, t2)) {
+                new_node->base.type_sym = t1;
+            }
+            break;
+        }
+        case 0: /* comma */
+            new_node->base.type_sym = new_node->ops[1]->type_sym;
+            break;
+        case 1: /* or */
+        case 2: /* and */
+        case 6: /* equality */
+        case 7: /* relational */
+            new_node->base.type_sym = &sym_int;
+            break;
+        }
     }
     return node;
 }
@@ -1102,6 +1180,9 @@ extern void parser_init()
     init_type("float", &sym_float);
     init_type("double", &sym_double);
     init_type("char", &sym_char);
+
+    sym_char_ptr.type = ST_POINTER;
+    sym_char_ptr.base_type = &sym_char;
 
     token.type = TOK_ERROR;
     token_next.type = TOK_ERROR;

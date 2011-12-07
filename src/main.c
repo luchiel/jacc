@@ -232,7 +232,7 @@ void print_symtable(symtable_t symtable, int level)
 void print_node(struct node *node, int level, int root)
 {
     struct node_info *info = parser_node_info(node);
-    int i;
+    int i, print_type = 0;
     show_indents[level + 1] = 1;
 
     print_node_indent(level, root);
@@ -258,14 +258,26 @@ void print_node(struct node *node, int level, int root)
         break;
     case NT_CAST:
         printf("cast to <");
-        print_symbol(((struct cast_node*)node)->type, level + 1, 0);
+        print_symbol(((struct cast_node*)node)->base.type_sym, level + 1, 0);
         printf(">");
         break;
     default:
         printf("%s", info->repr);
+        if (node->type_sym != NULL && (parser_flags_get() & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+            print_type = 1;
+        }
         break;
     }
-    printf(")\n");
+    printf(")");
+    if (print_type) {
+        printf(" -> <");
+        int old_indent = show_indents[level + 1];
+        show_indents[level + 1] = 0;
+        print_symbol(((struct cast_node*)node)->base.type_sym, level + 1, 0);
+        show_indents[level + 1] = old_indent;
+        printf(">");
+    }
+    printf("\n");
 
     int op_count = parser_node_subnodes_count(node);
     if (node->symtable != NULL && symtable_size(node->symtable) > 0) {

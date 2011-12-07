@@ -3,11 +3,11 @@ a is variable of type <int> = (
 )
 
 b is variable of type <int> = (
-   (+)
+   (+) -> <int>
     |
     +-(2)
     |
-    +-(/)
+    +-(/) -> <int>
        |
        +-(6)
        |
@@ -18,7 +18,7 @@ test is function returning nothing defined as {
    (list)
    [
       c is variable of type <int> = (
-         (*)
+         (*) -> <int>
           |
           +-(var b)
           |
