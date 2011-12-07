@@ -1,0 +1,28 @@
+a is variable of type <int> = (
+   (4)
+)
+
+b is variable of type <int> = (
+   (+)
+    |
+    +-(2)
+    |
+    +-(/)
+       |
+       +-(6)
+       |
+       +-(3)
+)
+
+test is function returning nothing defined as {
+   (list)
+   [
+      c is variable of type <int> = (
+         (*)
+          |
+          +-(var b)
+          |
+          +-(var a)
+      )
+   ]
+}

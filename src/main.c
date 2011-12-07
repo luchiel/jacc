@@ -148,6 +148,7 @@ void print_symbol(struct symbol *symbol, int level, int depth)
             printf(" defined as {\n");
             show_indents[level + 1] = 0;
             print_node(symbol->expr, level + 1, 1);
+            print_indent(level);
             printf("}");
         }
         break;
@@ -155,6 +156,13 @@ void print_symbol(struct symbol *symbol, int level, int depth)
         printf("variable of type <");
         print_symbol(symbol->base_type, level, depth + 1);
         printf(">");
+        if (symbol->expr != NULL) {
+            printf(" = (\n");
+            show_indents[level + 1] = 0;
+            print_node(symbol->expr, level + 1, 1);
+            print_indent(level);
+            printf(")");
+        }
         break;
     case ST_PARAMETER:
         printf("<");
@@ -257,15 +265,18 @@ void print_node(struct node *node, int level, int root)
     }
     printf(")\n");
 
+    int op_count = parser_node_subnodes_count(node);
     if (node->symtable != NULL && symtable_size(node->symtable) > 0) {
         print_indent(level);
         printf("[\n");
         print_symtable(node->symtable, level + 1);
         print_indent(level);
         printf("]");
+        if (op_count == 0) {
+            printf("\n");
+        }
     }
 
-    int op_count = parser_node_subnodes_count(node);
     for (i = 0; i < op_count; i++) {
         print_branch(parser_get_subnode(node, i), level, i == op_count - 1);
     }
