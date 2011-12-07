@@ -11,6 +11,8 @@ enum symbol_type {
     ST_TYPE_ALIAS,
     ST_STRUCT,
     ST_UNION,
+    ST_ENUM,
+    ST_ENUM_CONST,
     ST_ARRAY,
     ST_POINTER,
     ST_PARAMETER,

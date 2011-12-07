@@ -166,7 +166,13 @@ void print_symbol(struct symbol *symbol, int level, int depth)
         break;
     case ST_STRUCT:
     case ST_UNION:
-        printf("%s %s", symbol->type == ST_STRUCT ? "struct" : "union", symbol->name);
+    case ST_ENUM:
+        switch (symbol->type) {
+            case ST_STRUCT: printf("struct"); break;
+            case ST_UNION: printf("union"); break;
+            case ST_ENUM: printf("enum"); break;
+        }
+        printf(" %s", symbol->name);
         if (symbol->symtable != NULL && depth == 0) {
             printf(" defined as {\n");
             print_symtable(symbol->symtable, level + 1);
@@ -178,6 +184,17 @@ void print_symbol(struct symbol *symbol, int level, int depth)
         printf("alias for type <");
         print_symbol(symbol->base_type, level, depth + 1);
         printf(">");
+        break;
+    case ST_ENUM_CONST:
+        printf("enum const of type <");
+        print_symbol(symbol->base_type, level, depth + 1);
+        printf("> = (\n");
+        struct node_info *info = parser_node_info(symbol->expr);
+        if (info->cat == NC_ATOM) {
+            print_node(symbol->expr, level + 1, 1);
+        }
+        print_indent(level);
+        printf(")");
         break;
     default:
         printf("unknown symbol");

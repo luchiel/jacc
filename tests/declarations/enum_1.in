@@ -1,0 +1,9 @@
+enum a {};
+enum b;
+enum b {
+    A, B, C
+};
+
+enum c {
+    i, j, k,
+};

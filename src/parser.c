@@ -766,17 +766,16 @@ static struct symbol *parse_declarator_base(const char **name)
     return outer_symbol;
 }
 
-static struct symbol *parse_struct_or_union_specifier()
+static struct symbol *parse_structured_specifier_start(enum symbol_type symbol_type, const char *name_prefix)
 {
     struct symbol *symbol = jacc_malloc(sizeof(*symbol));
-    symbol->type = (token.type == TOK_STRUCT) ? ST_STRUCT : ST_UNION;
+    symbol->type = symbol_type;
     symbol->flags = SF_INCOMPLETE;
     symbol->base_type = NULL;
     symbol->name = NULL;
     symbol->symtable = NULL;
 
     next_token();
-
     if (token.type == TOK_IDENT) {
         symbol->name = token.value.str_val;
         token.value.str_val = NULL;
@@ -786,15 +785,18 @@ static struct symbol *parse_struct_or_union_specifier()
         if (struct_tag != NULL) {
             jacc_free((char*)symbol->name);
             jacc_free(symbol);
-            symbol = struct_tag;
-        } else {
-            put_symbol(symbol->name, symbol, SC_TAG);
+            return struct_tag;
         }
     } else {
-        symbol->name = generate_name("@struct");
-        put_symbol(symbol->name, symbol, SC_TAG);
+        symbol->name = generate_name(name_prefix);
     }
+    put_symbol(symbol->name, symbol, SC_TAG);
+    return symbol;
+}
 
+static struct symbol *parse_struct_or_union_specifier()
+{
+    struct symbol *symbol = parse_structured_specifier_start(token.type == TOK_STRUCT ? ST_STRUCT : ST_UNION, "@struct");
     if (accept(TOK_LBRACE)) {
         push_symtable();
         symbol->symtable = get_current_symtable();
@@ -804,6 +806,37 @@ static struct symbol *parse_struct_or_union_specifier()
             PARSE(result, declaration, DT_STRUCT)
         } while (!accept(TOK_RBRACE));
         pop_symtable();
+    }
+    return symbol;
+}
+
+static struct symbol *parse_enum_specifier()
+{
+    struct symbol *symbol = parse_structured_specifier_start(ST_ENUM, "@enum");
+    if (accept(TOK_LBRACE)) {
+        int counter = 0;
+        while (token.type != TOK_RBRACE) {
+            EXPECT(TOK_IDENT)
+
+            ALLOC_NODE_EX(NT_INT, value_node, int_node)
+            value_node->value = counter;
+
+            struct symbol *enum_const = jacc_malloc(sizeof(*enum_const));
+            enum_const->type = ST_ENUM_CONST;
+            enum_const->base_type = symbol;
+            enum_const->expr = (struct node*)value_node;
+            enum_const->name = token.value.str_val;
+            token.value.str_val = NULL;
+
+            put_symbol(enum_const->name, enum_const, SC_NAME);
+
+            next_token();
+            if (!accept(TOK_COMMA)) {
+                break;
+            }
+            counter++;
+        };
+        CONSUME(TOK_RBRACE)
     }
     return symbol;
 }
@@ -850,6 +883,8 @@ static struct symbol *parse_type_specifier()
     case TOK_STRUCT:
     case TOK_UNION:
         return parse_struct_or_union_specifier();
+    case TOK_ENUM:
+        return parse_enum_specifier();
     }
     return NULL;
 }
