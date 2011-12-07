@@ -989,7 +989,7 @@ extern symtable_t parser_parse()
     push_symtable();
     while (!accept(TOK_EOS)) {
         if (parse_declaration(DT_GLOBAL) == NULL) {
-            printf("FAIL\n");
+            printf("FAIL on line %d\n", token.line);
             pull_clear(parser_pull);
             return NULL;
         }
