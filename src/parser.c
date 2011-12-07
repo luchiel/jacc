@@ -62,14 +62,14 @@ void pop_symtable()
     current_symtable--;
 }
 
-void put_symbol(const char *name, struct symbol *symbol)
+void put_symbol(const char *name, struct symbol *symbol, enum symbol_class symclass)
 {
-    symtable_set(symtables[current_symtable], name, symbol);
+    symtable_set(symtables[current_symtable], name, symclass, symbol);
 }
 
 struct symbol *get_type_symbol(const char *name)
 {
-    return symtable_get(symtables[current_symtable], name);
+    return symtable_get(symtables[current_symtable], name, SC_NAME);
 }
 
 static struct node *parse_expr(int level);
@@ -698,7 +698,7 @@ static struct symbol *parse_function_declarator(struct symbol *base_type)
             if (parameter->name == NULL) {
                 parameter->name = generate_name("@arg");
             }
-            put_symbol(parameter->name, parameter);
+            put_symbol(parameter->name, parameter, SC_NAME);
         } while (accept(TOK_COMMA));
     }
     CONSUME(TOK_RPAREN)
@@ -851,7 +851,7 @@ static struct node *parse_declaration()
                 PARSE(symbol->expr, initializer)
             }
         }
-        put_symbol(symbol->name, symbol);
+        put_symbol(symbol->name, symbol, SC_NAME);
 
         if (symbol->type == ST_FUNCTION && symbol->expr != NULL) {
             return (struct node*)1;
@@ -866,7 +866,7 @@ static void init_type(const char *name, struct symbol *symbol)
 {
     symbol->name = name;
     symbol->type = ST_SCALAR_TYPE;
-    put_symbol(name, (struct symbol*)symbol);
+    put_symbol(name, (struct symbol*)symbol, SC_NAME);
 }
 
 extern void parser_init()

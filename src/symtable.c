@@ -8,6 +8,7 @@
 struct symtable_node {
     int hash;
     symtable_key_t key;
+    symtable_key2_t key2;
     symtable_value_t value;
     struct symtable_node *next;
 };
@@ -82,13 +83,13 @@ extern int symtable_size(symtable_t symtable)
     return symtable->size;
 }
 
-static struct symtable_node *find_node(symtable_t symtable, symtable_key_t key)
+static struct symtable_node *find_node(symtable_t symtable, symtable_key_t key, symtable_key2_t key2)
 {
     int key_hash = compute_hash(key);
     struct symtable_node *node = symtable->buckets[key_hash % symtable->capacity];
 
     while (node != NULL) {
-        if (node->hash == key_hash && strcmp(node->key, key) == 0) {
+        if (node->hash == key_hash && node->key2 == key2 && strcmp(node->key, key) == 0) {
             return node;
         }
         node = node->next;
@@ -96,18 +97,18 @@ static struct symtable_node *find_node(symtable_t symtable, symtable_key_t key)
     return NULL;
 }
 
-extern symtable_value_t symtable_get(symtable_t symtable, symtable_key_t key)
+extern symtable_value_t symtable_get(symtable_t symtable, symtable_key_t key, symtable_key2_t key2)
 {
-    struct symtable_node *node = find_node(symtable, key);
+    struct symtable_node *node = find_node(symtable, key, key2);
     if (node != NULL) {
         return node->value;
     }
     return NULL;
 }
 
-extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_value_t value)
+extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_key2_t key2, symtable_value_t value)
 {
-    struct symtable_node *node = find_node(symtable, key);
+    struct symtable_node *node = find_node(symtable, key, key2);
     if (node != NULL) {
         node->value = value;
         return;
@@ -116,6 +117,7 @@ extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_value
     node = jacc_malloc(sizeof(*node));
     node->hash = compute_hash(key);
     node->key = key;
+    node->key2 = key2;
     node->value = value;
     node->next = symtable->buckets[node->hash % symtable->capacity];
     symtable->buckets[node->hash % symtable->capacity] = node;
@@ -154,4 +156,9 @@ extern symtable_value_t symtable_iter_value(symtable_iter_t iter)
 extern symtable_key_t symtable_iter_key(symtable_iter_t iter)
 {
     return iter->node->key;
+}
+
+extern symtable_key2_t symtable_iter_key2(symtable_iter_t iter)
+{
+    return iter->node->key2;
 }
