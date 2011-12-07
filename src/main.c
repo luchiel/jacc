@@ -226,35 +226,36 @@ void print_node(struct node *node, int level, int root)
     show_indents[level + 1] = 1;
 
     print_node_indent(level, root);
-    switch (info->cat) {
-    case NC_ATOM:
-        printf("(");
-        switch (node->type) {
-            case NT_INT:
-                printf("%d", ((struct int_node*)node)->value);
-                break;
-            case NT_DOUBLE:
-                printf("%f", ((struct double_node*)node)->value);
-                break;
-            case NT_STRING:
-                printf("\"%s\"", ((struct string_node*)node)->value);
-                break;
-            case NT_IDENT:
-                printf("ident %s", ((struct string_node*)node)->value);
-                break;
-            case NT_NOP:
-                printf("nop");
-                break;
-            case NT_VARIABLE:
-                printf("var %s", ((struct var_node*)node)->symbol->name);
-                break;
-        }
-        printf(")\n");
+    printf("(");
+    switch (node->type) {
+    case NT_INT:
+        printf("%d", ((struct int_node*)node)->value);
+        break;
+    case NT_DOUBLE:
+        printf("%f", ((struct double_node*)node)->value);
+        break;
+    case NT_STRING:
+        printf("\"%s\"", ((struct string_node*)node)->value);
+        break;
+    case NT_IDENT:
+        printf("ident %s", ((struct string_node*)node)->value);
+        break;
+    case NT_NOP:
+        printf("nop");
+        break;
+    case NT_VARIABLE:
+        printf("var %s", ((struct var_node*)node)->symbol->name);
+        break;
+    case NT_CAST:
+        printf("cast to <");
+        print_symbol(((struct cast_node*)node)->type, level + 1, 0);
+        printf(">");
         break;
     default:
-        printf("(%s)\n", info->repr);
+        printf("%s", info->repr);
         break;
     }
+    printf(")\n");
 
     if (node->symtable != NULL && symtable_size(node->symtable) > 0) {
         print_indent(level);

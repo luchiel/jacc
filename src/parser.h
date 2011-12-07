@@ -66,6 +66,12 @@ struct var_node {
     struct symbol *symbol;
 };
 
+struct cast_node {
+    struct node base;
+    struct node *ops[1];
+    struct symbol *type;
+};
+
 #define NODE(name, str, cat, op_cnt) \
 struct node_NT_##name { \
     enum node_type type; \

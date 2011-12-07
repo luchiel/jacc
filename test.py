@@ -12,6 +12,7 @@ tests = {
     'expressions': jacc_cmd('parse_expr'),
     'statements': jacc_cmd('parse_stmt'),
     'declarations': jacc_cmd('parse'),
+    'semantic': jacc_cmd('parse'),
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))

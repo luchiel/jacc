@@ -129,6 +129,13 @@ static int is_var_symbol(struct symbol *symbol)
 }
 static struct node *parse_expr(int level);
 static struct node *parse_cast_expr();
+static int is_parse_type_specifier();
+static int parse_type_qualifier();
+
+static struct symbol *parse_declarator(struct symbol *base_type, const char **name);
+static struct symbol *parse_declarator_base(const char **name);
+static struct symbol *parse_specifier_qualifier_list();
+static struct symbol *parse_type_specifier();
 
 static int next_token()
 {
@@ -205,10 +212,29 @@ static struct node *parse_primary_expr()
     switch (token.type) {
     case TOK_LPAREN:
     {
-        CONSUME(TOK_LPAREN)
         struct node *node;
-        PARSE(node, expr, 0)
-        CONSUME(TOK_RPAREN)
+        CONSUME(TOK_LPAREN)
+        if (is_parse_type_specifier()) {
+            const char *symbol_name = NULL;
+            struct symbol *type;
+            PARSE(type, specifier_qualifier_list)
+            if (token.type != TOK_RPAREN) {
+                PARSE(type, declarator, type, &symbol_name)
+            }
+            if (symbol_name != NULL) {
+                parser_error("cast expression: expected abstract declarator");
+                return NULL;
+            }
+            ALLOC_NODE_EX(NT_CAST, cast_node, cast_node)
+            cast_node->type = type;
+            CONSUME(TOK_RPAREN)
+            PARSE(cast_node->ops[0], cast_expr)
+            node = (struct node*)cast_node;
+        } else {
+            PARSE(node, expr, 0)
+            CONSUME(TOK_RPAREN)
+        }
+
         return node;
     }
     case TOK_STRING_CONST:
@@ -570,7 +596,6 @@ static struct node *parse_opt_expr_with(enum token_type type)
 }
 
 static struct symbol *parse_declaration(enum declaration_type decl_type);
-static int is_parse_type_specifier();
 
 static struct node *parse_stmt()
 {
@@ -734,13 +759,6 @@ static struct node *parse_stmt()
     }
     }
 }
-
-static int parse_type_qualifier();
-
-static struct symbol *parse_declarator(struct symbol *base_type, const char **name);
-static struct symbol *parse_declarator_base(const char **name);
-static struct symbol *parse_specifier_qualifier_list();
-static struct symbol *parse_type_specifier();
 
 static struct symbol *parse_array_declarator(struct symbol *base_type)
 {
