@@ -5,11 +5,13 @@ import os
 import difflib
 import time
 
+jacc_cmd = lambda x: 'jacc {0} "%(input)s" > "%(output)s" 2>&1'.format(x)
+
 tests = {
-    'lexer': 'jacc lex "%(input)s" > "%(output)s" 2>&1',
-    'expressions': 'jacc parse_expr "%(input)s" > "%(output)s" 2>&1',
-    'statements': 'jacc parse_stmt "%(input)s" > "%(output)s" 2>&1',
-    'declarations': 'jacc parse "%(input)s" > "%(output)s" 2>&1',
+    'lexer': jacc_cmd('lex'),
+    'expressions': jacc_cmd('parse_expr'),
+    'statements': jacc_cmd('parse_stmt'),
+    'declarations': jacc_cmd('parse'),
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))
