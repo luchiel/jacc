@@ -115,6 +115,7 @@ void print_symbol(struct symbol *symbol, int level, int depth)
             printf(" [\n");
             show_indents[level + 1] = 0;
             print_node(symbol->expr, level + 1, 1);
+            print_indent(level);
             printf("]");
         }
         printf(" of ");
@@ -133,6 +134,7 @@ void print_symbol(struct symbol *symbol, int level, int depth)
                 print_symbol(symtable_iter_value(iter), level + 1, 0);
                 printf("\n");
             }
+            print_indent(level);
             printf(") ");
         }
 
