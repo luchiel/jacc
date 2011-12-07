@@ -35,7 +35,7 @@ typedef enum symbol_class symtable_key2_t;
 typedef struct symbol *symtable_value_t;
 typedef struct symtable_list_node *symtable_iter_t;
 
-extern symtable_t symtable_create();
+extern symtable_t symtable_create(int capacity);
 extern void symtable_destroy(symtable_t symtable, int free_nodes);
 
 extern int symtable_size(symtable_t symtable);
