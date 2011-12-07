@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <math.h>
 
 #include "symtable.h"
 #include "memory.h"
@@ -33,7 +34,7 @@ static int compute_hash(const char *key)
         hash = hash * 31 + *key + CHAR_MIN;
         key++;
     }
-    return hash;
+    return abs(hash);
 }
 
 extern symtable_t symtable_create(int capacity)
