@@ -42,7 +42,6 @@ extern int symtable_size(symtable_t symtable);
 
 extern symtable_value_t symtable_get(symtable_t symtable, symtable_key_t key, symtable_key2_t key2);
 extern void symtable_set(symtable_t symtable, symtable_key_t key, symtable_key2_t key2, symtable_value_t value);
-extern void symtable_delete(symtable_t symtable, symtable_key_t key);
 
 extern symtable_iter_t symtable_first(symtable_t symtable);
 extern symtable_iter_t symtable_iter_next(symtable_iter_t iter);
