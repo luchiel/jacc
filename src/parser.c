@@ -96,6 +96,10 @@ struct symbol *get_symbol(const char *name, enum symbol_class symclass)
 
 static int is_type_symbol(struct symbol *symbol)
 {
+    if (symbol == NULL) {
+        return 0;
+    }
+
     switch (symbol->type) {
     case ST_FUNCTION:
     case ST_SCALAR_TYPE:
@@ -941,10 +945,7 @@ static int is_parse_type_specifier()
     case TOK_ENUM:
         return 1;
     case TOK_IDENT:
-    {
-        struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
-        return symbol != NULL && is_type_symbol(symbol);
-    }
+        return is_type_symbol(get_symbol(token.value.str_val, SC_NAME));
     }
     return 0;
 }
@@ -970,7 +971,7 @@ static struct symbol *parse_type_specifier()
     case TOK_IDENT:
     {
         struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
-        if (symbol == NULL || !is_type_symbol(symbol)) {
+        if (!is_type_symbol(symbol)) {
             parser_error("typename expected");
             return NULL;
         }
