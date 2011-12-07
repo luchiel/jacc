@@ -879,8 +879,9 @@ static struct node *parse_initializer()
 static struct symbol *parse_declaration(enum declaration_type decl_type)
 {
     struct symbol *base_type;
+    int is_typedef = 0;
     if (decl_type == DT_GLOBAL) {
-        accept(TOK_TYPEDEF);
+        is_typedef = accept(TOK_TYPEDEF);
         PARSE(base_type, declaration_specifiers)
     } else {
         PARSE(base_type, specifier_qualifier_list)
@@ -898,7 +899,7 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
             symbol = declarator;
         } else {
             symbol = jacc_malloc(sizeof(*symbol));
-            symbol->type = ST_VARIABLE;
+            symbol->type = is_typedef ? ST_TYPE_ALIAS : ST_VARIABLE;
             symbol->expr = NULL;
             symbol->base_type = declarator;
         }

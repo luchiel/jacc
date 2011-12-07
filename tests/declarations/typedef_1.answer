@@ -1,0 +1,15 @@
+cool_int is alias for type <int>
+cool_int_ptr is alias for type <pointer to int>
+cool_int_ary is alias for type <array [
+   (5)
+] of int>
+
+tag @struct1 is struct @struct1 defined as {
+   u is variable of type <int>
+}
+my_struct is alias for type <struct @struct1>
+
+tag z is struct z defined as {
+   u is variable of type <int>
+}
+r is alias for type <struct z>

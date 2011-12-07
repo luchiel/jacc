@@ -174,6 +174,11 @@ void print_symbol(struct symbol *symbol, int level, int depth)
             printf("}");
         }
         break;
+    case ST_TYPE_ALIAS:
+        printf("alias for type <");
+        print_symbol(symbol->base_type, level, depth + 1);
+        printf(">");
+        break;
     default:
         printf("unknown symbol");
     }

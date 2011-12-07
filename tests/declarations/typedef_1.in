@@ -1,0 +1,9 @@
+typedef int cool_int, *cool_int_ptr, cool_int_ary[5];
+
+typedef struct {
+    int u;
+} my_struct;
+
+typedef struct z {
+    int u;
+} r;

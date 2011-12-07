@@ -8,6 +8,7 @@ enum symbol_type {
     ST_VARIABLE,
     ST_FUNCTION,
     ST_SCALAR_TYPE,
+    ST_TYPE_ALIAS,
     ST_STRUCT,
     ST_UNION,
     ST_ARRAY,
