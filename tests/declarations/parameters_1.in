@@ -1,0 +1,3 @@
+int test(int c) {
+    c = 4;
+}

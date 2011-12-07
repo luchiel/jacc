@@ -11,6 +11,7 @@
 #define ALLOC_NODE_EX(enum_type, var_name, struct_name) \
     struct struct_name *var_name = jacc_malloc(sizeof(*var_name)); \
     pull_add(parser_pull, var_name); \
+    ((struct node*)(var_name))->symtable = NULL; \
     ((struct node*)(var_name))->type = (enum_type);
 
 #define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
@@ -25,6 +26,7 @@
 symtable_t symtables[SYMTABLE_MAX_DEPTH];
 int current_symtable;
 int name_uid = 0;
+int parser_flags = 0;
 struct symbol sym_null, sym_void, sym_int, sym_float, sym_double, sym_char;
 
 pull_t parser_pull;
@@ -40,6 +42,7 @@ struct node_info nodes_info[] = {
 
 enum declaration_type {
     DT_GLOBAL,
+    DT_LOCAL,
     DT_STRUCT,
 };
 
@@ -55,11 +58,18 @@ symtable_t get_current_symtable()
     return symtables[current_symtable];
 }
 
-void push_symtable()
+symtable_t push_symtable_ex(symtable_t symtable)
 {
     current_symtable++;
-    symtables[current_symtable] = symtable_create(SYMTABLE_DEFAULT_SIZE);
-    pull_add(parser_pull, symtables[current_symtable]);
+    symtables[current_symtable] = symtable;
+    return symtables[current_symtable];
+}
+
+symtable_t push_symtable()
+{
+    symtable_t symtable = symtable_create(SYMTABLE_DEFAULT_SIZE);
+    pull_add(parser_pull, symtable);
+    return push_symtable_ex(symtable);
 }
 
 void pop_symtable()
@@ -84,6 +94,35 @@ struct symbol *get_symbol(const char *name, enum symbol_class symclass)
     return NULL;
 }
 
+static int is_type_symbol(struct symbol *symbol)
+{
+    switch (symbol->type) {
+    case ST_FUNCTION:
+    case ST_SCALAR_TYPE:
+    case ST_TYPE_ALIAS:
+    case ST_STRUCT:
+    case ST_UNION:
+    case ST_ENUM:
+    case ST_ARRAY:
+    case ST_POINTER:
+        return 1;
+    }
+    return 0;
+}
+
+static int is_var_symbol(struct symbol *symbol)
+{
+    if (symbol == NULL) {
+        return 0;
+    }
+
+    switch (symbol->type) {
+    case ST_VARIABLE:
+    case ST_PARAMETER:
+        return 1;
+    }
+    return 0;
+}
 static struct node *parse_expr(int level);
 static struct node *parse_cast_expr();
 
@@ -178,7 +217,21 @@ static struct node *parse_primary_expr()
         return (struct node*)node;
     }
     case TOK_IDENT:
-        return parse_ident();
+    {
+        if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+            EXPECT(TOK_IDENT)
+            ALLOC_NODE_EX(NT_VARIABLE, var_node, var_node)
+            var_node->symbol = get_symbol(token.value.str_val, SC_NAME);
+            if (!is_var_symbol(var_node->symbol)) {
+                parser_error("Expected variable type");
+                return NULL;
+            }
+            next_token();
+            return (struct node*)var_node;
+        } else {
+            return parse_ident();
+        }
+    }
     case TOK_INT_CONST:
     {
         ALLOC_NODE_EX(NT_INT, node, int_node)
@@ -512,6 +565,9 @@ static struct node *parse_opt_expr_with(enum token_type type)
     return node;
 }
 
+static struct symbol *parse_declaration(enum declaration_type decl_type);
+static int is_parse_type_specifier();
+
 static struct node *parse_stmt()
 {
     switch (token.type) {
@@ -534,7 +590,9 @@ static struct node *parse_stmt()
         CONSUME(TOK_LPAREN)
         PARSE(while_node->ops[0], expr, 0)
         CONSUME(TOK_RPAREN)
+        while_node->symtable = push_symtable();
         PARSE(while_node->ops[1], stmt)
+        pop_symtable();
         return (struct node*)while_node;
     }
     case TOK_DO:
@@ -544,7 +602,9 @@ static struct node *parse_stmt()
         PARSE(while_node->ops[0], stmt)
         CONSUME(TOK_WHILE)
         CONSUME(TOK_LPAREN)
+        while_node->symtable = push_symtable();
         PARSE(while_node->ops[1], expr, 0)
+        pop_symtable();
         CONSUME(TOK_RPAREN)
         CONSUME(TOK_SEMICOLON)
         return (struct node*)while_node;
@@ -552,12 +612,15 @@ static struct node *parse_stmt()
     case TOK_FOR:
     {
         ALLOC_NODE(NT_FOR, for_node)
+
         CONSUME(TOK_FOR)
         CONSUME(TOK_LPAREN)
         PARSE(for_node->ops[0], opt_expr_with, TOK_SEMICOLON)
         PARSE(for_node->ops[1], opt_expr_with, TOK_SEMICOLON)
         PARSE(for_node->ops[2], opt_expr_with, TOK_RPAREN)
+        for_node->symtable = push_symtable();
         PARSE(for_node->ops[3], stmt)
+        pop_symtable();
         return (struct node*)for_node;
     }
     case TOK_IF:
@@ -567,7 +630,9 @@ static struct node *parse_stmt()
         CONSUME(TOK_LPAREN)
         PARSE(if_node->ops[0], expr, 0)
         CONSUME(TOK_RPAREN)
+        if_node->symtable = push_symtable();
         PARSE(if_node->ops[1], stmt)
+        pop_symtable();
         if (accept(TOK_ELSE)) {
             PARSE(if_node->ops[2], stmt)
         } else {
@@ -582,18 +647,26 @@ static struct node *parse_stmt()
         CONSUME(TOK_LPAREN)
         PARSE(switch_node->ops[0], expr, 0)
         CONSUME(TOK_RPAREN)
+        switch_node->symtable = push_symtable();
         PARSE(switch_node->ops[1], stmt)
+        pop_symtable();
         return (struct node*)switch_node;
     }
     case TOK_LBRACE:
     {
         CONSUME(TOK_LBRACE)
         struct list_node* list_node = alloc_list_node();
+        list_node->base.symtable = push_symtable();
         while (!accept(TOK_RBRACE)) {
             list_node->size++;
             list_node_ensure_capacity(list_node, list_node->size);
             PARSE(list_node->items[list_node->size - 1], stmt)
+            if (list_node->items[list_node->size - 1]->type == NT_NOP) {
+                parser_free_node(list_node->items[list_node->size - 1]);
+                list_node->size--;
+            }
         }
+        pop_symtable();
         return (struct node*)list_node;
     }
     case TOK_BREAK:
@@ -646,6 +719,10 @@ static struct node *parse_stmt()
             PARSE(label_node->ops[1], stmt)
             return (struct node*)label_node;
         }
+        if (is_parse_type_specifier(DT_LOCAL)) {
+            parse_declaration(DT_LOCAL);
+            return parse_nop();
+        }
         struct node *node;
         PARSE(node, expr, 0)
         CONSUME(TOK_SEMICOLON)
@@ -660,7 +737,6 @@ static struct symbol *parse_declarator(struct symbol *base_type, const char **na
 static struct symbol *parse_declarator_base(const char **name);
 static struct symbol *parse_specifier_qualifier_list();
 static struct symbol *parse_type_specifier();
-static struct symbol *parse_declaration(enum declaration_type decl_type);
 
 static struct symbol *parse_array_declarator(struct symbol *base_type)
 {
@@ -852,6 +928,27 @@ static struct symbol *parse_declarator(struct symbol *base_type, const char **na
     return symbol;
 }
 
+static int is_parse_type_specifier()
+{
+    switch (token.type) {
+    case TOK_VOID:
+    case TOK_CHAR:
+    case TOK_INT:
+    case TOK_FLOAT:
+    case TOK_DOUBLE:
+    case TOK_STRUCT:
+    case TOK_UNION:
+    case TOK_ENUM:
+        return 1;
+    case TOK_IDENT:
+    {
+        struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
+        return symbol != NULL && is_type_symbol(symbol);
+    }
+    }
+    return 0;
+}
+
 static struct symbol *parse_type_specifier()
 {
     switch (token.type) {
@@ -873,7 +970,7 @@ static struct symbol *parse_type_specifier()
     case TOK_IDENT:
     {
         struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
-        if (symbol == NULL) {
+        if (symbol == NULL || !is_type_symbol(symbol)) {
             parser_error("typename expected");
             return NULL;
         }
@@ -947,7 +1044,9 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
 
         if (symbol->type == ST_FUNCTION) {
             if (token.type == TOK_LBRACE) {
+                push_symtable_ex(symbol->symtable);
                 PARSE(symbol->expr, stmt);
+                pop_symtable();
             }
         } else {
             if (accept(TOK_ASSIGN)) {
@@ -976,6 +1075,7 @@ extern void parser_init()
 {
     parser_pull = pull_create();
     current_symtable = 0;
+    parser_flags = PF_RESOLVE_NAMES;
     symtables[0] = symtable_create(SYMTABLE_DEFAULT_SIZE);
 
     init_type("void", &sym_void);
@@ -1082,4 +1182,14 @@ extern struct node *parser_get_subnode(struct node *node, int index)
 extern int parser_is_void_symbol(struct symbol *symbol)
 {
     return symbol == &sym_void;
+}
+
+extern void parser_flags_set(int new_flags)
+{
+    parser_flags = new_flags;
+}
+
+extern int parser_flags_get()
+{
+    return parser_flags;
 }

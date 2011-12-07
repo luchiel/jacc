@@ -56,6 +56,7 @@ NODE(CALL, "call", NC_BINARY, 2)
 
 NODE(TERNARY, "?:", NC_TERNARY, 3)
 
+NODE(VARIABLE, "var", NC_ATOM, 0)
 NODE(INT, "int", NC_ATOM, 0)
 NODE(DOUBLE, "double", NC_ATOM, 0)
 NODE(STRING, "string", NC_ATOM, 0)

@@ -1,0 +1,11 @@
+test is function taking (
+   <int> as c
+) returning <int> defined as {
+   (list)
+    |
+    +-(=)
+       |
+       +-(var c)
+       |
+       +-(4)
+}

@@ -1,0 +1,23 @@
+main is function returning <int> defined as {
+   (list)
+   [
+      a is variable of type <int>
+   ]
+    +-(list)
+      [
+         a is variable of type <int>
+      ]
+    +-(while)
+       |
+       +-(1)
+       |
+       +-(list)
+         [
+            a is variable of type <int>
+         ]
+          +-(=)
+             |
+             +-(var a)
+             |
+             +-(4)
+}

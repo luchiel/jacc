@@ -245,12 +245,23 @@ void print_node(struct node *node, int level, int root)
             case NT_NOP:
                 printf("nop");
                 break;
+            case NT_VARIABLE:
+                printf("var %s", ((struct var_node*)node)->symbol->name);
+                break;
         }
         printf(")\n");
         break;
     default:
         printf("(%s)\n", info->repr);
         break;
+    }
+
+    if (node->symtable != NULL && symtable_size(node->symtable) > 0) {
+        print_indent(level);
+        printf("[\n");
+        print_symtable(node->symtable, level + 1);
+        print_indent(level);
+        printf("]");
     }
 
     int op_count = parser_node_subnodes_count(node);
@@ -270,8 +281,10 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
     symtable_t symtable = NULL;
 
     if (strcmp(cmd, "parse_expr") == 0) {
+        parser_flags_set(0);
         node = parser_parse_expr();
     } else if (strcmp(cmd, "parse_stmt") == 0) {
+        parser_flags_set(0);
         node = parser_parse_statement();
     } else if (strcmp(cmd, "parse") == 0) {
         symtable = parser_parse();

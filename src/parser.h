@@ -3,6 +3,8 @@
 
 #include "symtable.h"
 
+#define PF_RESOLVE_NAMES 1
+
 #define DEFINE_NODE_TYPE(name, op_count) \
     struct name { \
         struct node base; \
@@ -33,6 +35,7 @@ struct node_info {
 
 struct node {
     enum node_type type;
+    symtable_t symtable;
     struct node *ops[0];
 };
 
@@ -58,9 +61,15 @@ struct list_node {
     int capacity;
 };
 
+struct var_node {
+    struct node base;
+    struct symbol *symbol;
+};
+
 #define NODE(name, str, cat, op_cnt) \
 struct node_NT_##name { \
     enum node_type type; \
+    symtable_t symtable; \
     struct node *ops[op_cnt]; \
 };
 #include "nodes.def"
@@ -82,5 +91,8 @@ extern int parser_node_subnodes_count(struct node *node);
 extern struct node *parser_get_subnode(struct node *node, int index);
 
 extern int parser_is_void_symbol(struct symbol *symbol);
+
+extern void parser_flags_set(int new_flags);
+extern int parser_flags_get();
 
 #endif
