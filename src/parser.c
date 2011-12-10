@@ -589,6 +589,14 @@ int is_compatible_types(struct symbol *s1, struct symbol *s2)
         return 0;
     }
 
+    while (s1->type == ST_TYPE_ALIAS) {
+        s1 = s1->base_type;
+    }
+
+    while (s2->type == ST_TYPE_ALIAS) {
+        s2 = s2->base_type;
+    }
+
     if (s1->type == ST_SCALAR_TYPE && s2->type == ST_SCALAR_TYPE) {
         return s1 == s2;
     }
