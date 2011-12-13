@@ -6,6 +6,7 @@ OBJECTS_PATH = obj
 SOURCES = $(wildcard $(SOURCES_PATH)/*.c)
 OBJECTS = $(patsubst $(SOURCES_PATH)/%.o, $(OBJECTS_PATH)/%.o, $(patsubst %.c, %.o, $(SOURCES)))
 CFLAGS += -g -Wall -Wextra -Wno-switch
+CC=gcc
 
 test: all
 	python test.py
