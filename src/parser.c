@@ -380,13 +380,43 @@ static void swap_nodes(struct node **s1, struct node **s2)
     *s2 = t;
 }
 
-static int set_binary_expr_type(struct node *node, int level, enum node_type type)
+static int is_int_only_node_type(enum node_type type)
+{
+    switch (type) {
+    case NT_BIT_OR:
+    case NT_BIT_AND:
+    case NT_BIT_XOR:
+    case NT_LSHIFT:
+    case NT_RSHIFT:
+    case NT_MOD:
+        return 1;
+    }
+    return 0;
+}
+
+static int is_cmp_node_type(enum node_type type)
+{
+    switch (type) {
+    case NT_LT:
+    case NT_LE:
+    case NT_GT:
+    case NT_GE:
+    case NT_EQ:
+    case NT_NE:
+    case NT_OR:
+    case NT_AND:
+        return 1;
+    }
+    return 0;
+}
+
+static int set_binary_expr_type(struct node *node)
 {
     if (node->ops[0]->type_sym == NULL || node->ops[1]->type_sym == NULL) {
         return 0;
     }
 
-    if (type == NT_COMMA) {
+    if (node->type == NT_COMMA) {
         node->type_sym = node->ops[1]->type_sym;
         return 1;
     }
@@ -394,7 +424,7 @@ static int set_binary_expr_type(struct node *node, int level, enum node_type typ
     struct symbol *t1 = resolve_alias(node->ops[0]->type_sym);
     struct symbol *t2 = resolve_alias(node->ops[1]->type_sym);
 
-    if (type == NT_SUB && is_ptr_type(t1) && is_ptr_type(t2)) {
+    if (node->type == NT_SUB && is_ptr_type(t1) && is_ptr_type(t2)) {
         if (!is_compatible_types(t1, t2)) {
             return 0;
         }
@@ -402,7 +432,7 @@ static int set_binary_expr_type(struct node *node, int level, enum node_type typ
         return 1;
     }
 
-    if (type == NT_ADD && (is_ptr_type(t1) || is_ptr_type(t2))) {
+    if (node->type == NT_ADD && (is_ptr_type(t1) || is_ptr_type(t2))) {
         if (is_ptr_type(t2)) {
             swap_nodes(&node->ops[0], &node->ops[1]);
             swap_symbols(&t1, &t2);
@@ -417,20 +447,16 @@ static int set_binary_expr_type(struct node *node, int level, enum node_type typ
         return 0;
     }
 
-    if (level <= 10) {
-        struct symbol *common_type = arith_common_type(t1, t2);
-        node->type_sym = (level == 6 || level == 7) ? &sym_int : common_type;
+    struct symbol *common_type = arith_common_type(t1, t2);
+    node->type_sym = is_cmp_node_type(node->type) ? &sym_int : common_type;
 
-        if (node->type_sym == &sym_float) {
-            if (level <= 5 || level == 8 || node->type == NT_MOD) {
-                return 0;
-            }
-        }
-
-        if (!convert_ops_to(node->ops, 2, common_type)) {
+    if (node->type_sym == &sym_float) {
+        if (is_int_only_node_type(node->type)) {
             return 0;
         }
-    } else {
+    }
+
+    if (!convert_ops_to(node->ops, 2, common_type)) {
         return 0;
     }
     return 1;
@@ -924,6 +950,23 @@ static int accept_assign_expr_token()
 }
 #undef CHECK
 
+static enum node_type get_op_type_from_assign(enum node_type type)
+{
+    switch (type) {
+    case NT_ADD_ASSIGN: return NT_ADD;
+    case NT_SUB_ASSIGN: return NT_SUB;
+    case NT_MUL_ASSIGN: return NT_MUL;
+    case NT_DIV_ASSIGN: return NT_DIV;
+    case NT_MOD_ASSIGN: return NT_MOD;
+    case NT_LSHIFT_ASSIGN: return NT_LSHIFT;
+    case NT_RSHIFT_ASSIGN: return NT_RSHIFT;
+    case NT_OR_ASSIGN: return NT_BIT_OR;
+    case NT_AND_ASSIGN: return NT_BIT_AND;
+    case NT_XOR_ASSIGN: return NT_BIT_XOR;
+    }
+    return NT_UNKNOWN;
+}
+
 static struct node *parse_assign_expr()
 {
     struct node *node;
@@ -937,7 +980,29 @@ static struct node *parse_assign_expr()
     next_token();
     new_node->ops[0] = node;
     new_node->base.type_sym = node->type_sym;
+    if (calc_types() && !check_is_lvalue(new_node->ops[0])) {
+        parser_error("lvalue expected");
+        return NULL;
+    }
     PARSE(new_node->ops[1], assign_expr)
+    if (calc_types()) {
+        if (!convert_ops_to(&new_node->ops[1], 1, node->type_sym)) {
+            parser_error("invalid operand");
+            return NULL;
+        }
+
+        if (new_node->base.type != NT_ASSIGN) {
+            ALLOC_NODE_EX(get_op_type_from_assign(new_node->base.type), op_node, binary_node)
+            op_node->ops[0] = new_node->ops[0];
+            op_node->ops[1] = new_node->ops[1];
+            if (!set_binary_expr_type((struct node*)op_node)) {
+                parser_error("invalid operand");
+                return NULL;
+            }
+            new_node->ops[1] = (struct node*)op_node;
+            new_node->base.type = NT_ASSIGN;
+        }
+    }
     return (struct node*)new_node;
 }
 
@@ -978,7 +1043,7 @@ static struct node *parse_expr(int level)
         node = (struct node*)new_node;
 
         if (calc_types()) {
-            if (!set_binary_expr_type((struct node*)new_node, level, new_node->base.type)) {
+            if (!set_binary_expr_type((struct node*)new_node)) {
                 parser_error("invalid operands");
                 return NULL;
             }
