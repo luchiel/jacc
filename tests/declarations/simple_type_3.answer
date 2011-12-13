@@ -3,7 +3,7 @@ a is variable of type <array [
 ] of int>
 
 b is variable of type <array [
-   (+)
+   (+) -> <int>
     |
     +-(7)
     |
@@ -11,9 +11,9 @@ b is variable of type <array [
 ] of int>
 
 c is variable of type <array [
-   (*)
+   (*) -> <int>
     |
-    +-(?:)
+    +-(?:) -> <int>
     |  |
     |  +-(7)
     |  |

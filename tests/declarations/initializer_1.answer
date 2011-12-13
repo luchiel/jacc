@@ -20,9 +20,9 @@ test is function returning nothing defined as {
       c is variable of type <int> = (
          (*) -> <int>
           |
-          +-(var b)
+          +-(var b) -> <int>
           |
-          +-(var a)
+          +-(var a) -> <int>
       )
    ]
 }

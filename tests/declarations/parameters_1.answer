@@ -5,7 +5,7 @@ test is function taking (
     |
     +-(=) -> <int>
        |
-       +-(var c)
+       +-(var c) -> <int>
        |
        +-(4)
 }

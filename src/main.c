@@ -232,7 +232,7 @@ void print_symtable(symtable_t symtable, int level)
 void print_node(struct node *node, int level, int root)
 {
     struct node_info *info = parser_node_info(node);
-    int i, print_type = 0;
+    int i, print_type = 1;
     show_indents[level + 1] = 1;
 
     print_node_indent(level, root);
@@ -240,18 +240,22 @@ void print_node(struct node *node, int level, int root)
     switch (node->type) {
     case NT_INT:
         printf("%d", ((struct int_node*)node)->value);
+        print_type = 0;
         break;
     case NT_DOUBLE:
         printf("%f", ((struct double_node*)node)->value);
+        print_type = 0;
         break;
     case NT_STRING:
         printf("\"%s\"", ((struct string_node*)node)->value);
+        print_type = 0;
         break;
     case NT_IDENT:
         printf("ident %s", ((struct string_node*)node)->value);
         break;
     case NT_NOP:
         printf("nop");
+        print_type = 0;
         break;
     case NT_VARIABLE:
         printf("var %s", ((struct var_node*)node)->symbol->name);
@@ -260,6 +264,7 @@ void print_node(struct node *node, int level, int root)
         printf("cast to <");
         print_symbol(((struct cast_node*)node)->base.type_sym, level + 1, 0);
         printf(">");
+        print_type = 0;
         break;
     default:
         printf("%s", info->repr);
@@ -269,7 +274,7 @@ void print_node(struct node *node, int level, int root)
         break;
     }
     printf(")");
-    if (print_type) {
+    if (node->type_sym != NULL && print_type) {
         printf(" -> <");
         int old_indent = show_indents[level + 1];
         show_indents[level + 1] = 0;

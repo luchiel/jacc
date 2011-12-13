@@ -17,7 +17,7 @@ main is function returning <int> defined as {
          ]
           +-(=) -> <int>
              |
-             +-(var a)
+             +-(var a) -> <int>
              |
              +-(4)
 }
