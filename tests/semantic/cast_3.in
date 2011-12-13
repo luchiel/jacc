@@ -1,0 +1,13 @@
+void char_test()
+{
+    char c = 0;
+
+    c + (char)1;
+    (char)1 + c;
+
+    c + 1;
+    1 + c;
+
+    c + 1.;
+    1. + c;
+}

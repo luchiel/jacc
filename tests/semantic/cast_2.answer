@@ -1,0 +1,25 @@
+int_test is function returning nothing defined as {
+   (list)
+    |
+    +-(+) -> <int>
+    |  |
+    |  +-(1)
+    |  |
+    |  +-(2)
+    |
+    +-(+) -> <float>
+    |  |
+    |  +-(cast to <float>)
+    |  |  |
+    |  |  +-(1)
+    |  |
+    |  +-(2.000000)
+    |
+    +-(+) -> <float>
+       |
+       +-(2.000000)
+       |
+       +-(cast to <float>)
+          |
+          +-(1)
+}

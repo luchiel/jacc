@@ -1,0 +1,9 @@
+void ptr_test()
+{
+    (void*)0 - (void*)0;
+    (int*)0 + 10;
+    10 + (int*)0;
+
+    char c;
+    c + (void*)0;
+}

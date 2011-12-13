@@ -1,0 +1,41 @@
+ptr_test is function returning nothing defined as {
+   (list)
+   [
+      c is variable of type <char>
+   ]
+    +-(-) -> <int>
+       |
+       +-(cast to <pointer to void>)
+       |  |
+       |  +-(0)
+       |
+       +-(cast to <pointer to void>)
+          |
+          +-(0)
+
+    +-(+) -> <pointer to int>
+       |
+       +-(cast to <pointer to int>)
+       |  |
+       |  +-(0)
+       |
+       +-(10)
+
+    +-(+) -> <pointer to int>
+       |
+       +-(cast to <pointer to int>)
+       |  |
+       |  +-(0)
+       |
+       +-(10)
+
+    +-(+) -> <pointer to void>
+       |
+       +-(cast to <pointer to void>)
+       |  |
+       |  +-(0)
+       |
+       +-(cast to <int>)
+          |
+          +-(var c) -> <char>
+}

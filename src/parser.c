@@ -46,43 +46,43 @@ enum declaration_type {
     DT_STRUCT,
 };
 
-char* generate_name(const char *prefix)
+static char* generate_name(const char *prefix)
 {
     char *buf = jacc_malloc(16);
     sprintf(buf, "%s%d", prefix, ++name_uid);
     return buf;
 }
 
-symtable_t get_current_symtable()
+static symtable_t get_current_symtable()
 {
     return symtables[current_symtable];
 }
 
-symtable_t push_symtable_ex(symtable_t symtable)
+static symtable_t push_symtable_ex(symtable_t symtable)
 {
     current_symtable++;
     symtables[current_symtable] = symtable;
     return symtables[current_symtable];
 }
 
-symtable_t push_symtable()
+static symtable_t push_symtable()
 {
     symtable_t symtable = symtable_create(SYMTABLE_DEFAULT_SIZE);
     pull_add(parser_pull, symtable);
     return push_symtable_ex(symtable);
 }
 
-void pop_symtable()
+static void pop_symtable()
 {
     current_symtable--;
 }
 
-void put_symbol(const char *name, struct symbol *symbol, enum symbol_class symclass)
+static void put_symbol(const char *name, struct symbol *symbol, enum symbol_class symclass)
 {
     symtable_set(symtables[current_symtable], name, symclass, symbol);
 }
 
-struct symbol *get_symbol(const char *name, enum symbol_class symclass)
+static struct symbol *get_symbol(const char *name, enum symbol_class symclass)
 {
     int i = current_symtable;
     for (; i >= 0; i--) {
@@ -127,6 +127,216 @@ static int is_var_symbol(struct symbol *symbol)
     }
     return 0;
 }
+
+static int is_ptr_type(struct symbol *symbol)
+{
+    if (symbol == NULL) {
+        return 0;
+    }
+
+    switch (symbol->type) {
+    case ST_POINTER:
+    case ST_ARRAY:
+        return 1;
+    }
+    return 0;
+}
+
+
+static int is_compatible_types(struct symbol *s1, struct symbol *s2);
+
+static int is_compatible_symtable(symtable_t s1, symtable_t s2)
+{
+    if (symtable_size(s1) != symtable_size(s2)) {
+        return 0;
+    }
+    symtable_iter_t iter = symtable_first(s1);
+    symtable_iter_t iter2 = symtable_first(s2);
+    for (; iter != NULL; iter = symtable_iter_next(iter), iter2 = symtable_iter_next(iter2)) {
+        if (!is_compatible_types(symtable_iter_value(iter), symtable_iter_value(iter2))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static struct symbol *resolve_alias(struct symbol *symbol)
+{
+    while (symbol->type == ST_TYPE_ALIAS) {
+        symbol = symbol->base_type;
+    }
+    return symbol;
+}
+
+static enum symbol_type get_generic_type(struct symbol *symbol)
+{
+    enum symbol_type result = resolve_alias(symbol)->type;
+    switch (result) {
+    case ST_PARAMETER: return ST_VARIABLE;
+    case ST_ARRAY: return ST_POINTER;
+    }
+    return result;
+}
+
+static int is_compatible_types(struct symbol *s1, struct symbol *s2)
+{
+    if (s1 == NULL || s2 == NULL) {
+        return 0;
+    }
+
+    s1 = resolve_alias(s1);
+    s2 = resolve_alias(s2);
+
+    enum symbol_type t1 = get_generic_type(s1), t2 = get_generic_type(s2);
+
+    if (t1 == ST_SCALAR_TYPE && t2 == ST_SCALAR_TYPE) {
+        return s1 == s2;
+    }
+
+    if ((t1 == ST_POINTER || t1 == ST_ARRAY) && t1 == t2) {
+        return is_compatible_types(s1->base_type, s2->base_type);
+    }
+
+    if (t1 == ST_FUNCTION && t2 == ST_FUNCTION) {
+        return is_compatible_types(s1->base_type, s2->base_type)
+                && s1->flags == s2->flags
+                && is_compatible_symtable(s1->symtable, s2->symtable);
+    }
+
+    if ((t1 == ST_STRUCT || t1 == ST_UNION) && t1 == t2) {
+        return is_compatible_symtable(s1->symtable, s2->symtable);
+    }
+    return 0;
+}
+
+static struct symbol *_arith_common_type(struct symbol *s1, struct symbol *s2)
+{
+    if (s1->type == ST_ENUM_CONST && (s2 == &sym_int || s2 == &sym_char)) {
+        return &sym_int;
+    } else if (s1 == &sym_float && (s2 == &sym_float || s2 == &sym_int || s2 == &sym_char)) {
+        return &sym_float;
+    } else if (s1 == &sym_int && (s2 == &sym_int || s2 == &sym_char)) {
+        return &sym_int;
+    } else if (s1 == &sym_char && s2 == &sym_char) {
+        return &sym_char;
+    }
+    return NULL;
+}
+
+static struct symbol *arith_common_type(struct symbol *s1, struct symbol *s2)
+{
+    struct symbol *type = _arith_common_type(s1, s2);
+    if (type != NULL) {
+        return type;
+    }
+    return _arith_common_type(s2, s1);
+}
+
+static struct node *implicit_cast_to(struct symbol *dst_type, struct node *node)
+{
+    struct symbol *src_type = resolve_alias(node->type_sym);
+    if (is_compatible_types(src_type, dst_type)) {
+        return node;
+    }
+
+    ALLOC_NODE_EX(NT_CAST, cast_node, cast_node)
+    cast_node->base.type_sym = dst_type;
+    cast_node->ops[0] = node;
+    return (struct node*)cast_node;
+}
+
+static int convert_ops_to(struct node **ops, int op_count, struct symbol *type)
+{
+    struct node *new_ops[5];
+    int i;
+
+    if (type == NULL) {
+        return 0;
+    }
+
+    for (i = 0; i < op_count; i++) {
+        new_ops[i] = implicit_cast_to(type, ops[i]);
+        if (new_ops[i] == NULL) {
+            return 0;
+        }
+    }
+
+    for (i = 0; i < op_count; i++) {
+        ops[i] = new_ops[i];
+    }
+    return 1;
+}
+
+static void swap_symbols(struct symbol **s1, struct symbol **s2)
+{
+    struct symbol *t = *s1;
+    *s1 = *s2;
+    *s2 = t;
+}
+
+static void swap_nodes(struct node **s1, struct node **s2)
+{
+    struct node *t = *s1;
+    *s1 = *s2;
+    *s2 = t;
+}
+
+static int set_binary_expr_type(struct node *node, int level, enum node_type type)
+{
+    if (node->ops[0]->type_sym == NULL || node->ops[1]->type_sym == NULL) {
+        return 0;
+    }
+
+    if (type == NT_COMMA) {
+        node->type_sym = node->ops[1]->type_sym;
+        return 1;
+    }
+
+    struct symbol *t1 = resolve_alias(node->ops[0]->type_sym);
+    struct symbol *t2 = resolve_alias(node->ops[1]->type_sym);
+
+    if (type == NT_SUB && is_ptr_type(t1) && is_ptr_type(t2)) {
+        if (!is_compatible_types(t1, t2)) {
+            return 0;
+        }
+        node->type_sym = &sym_int;
+        return 1;
+    }
+
+    if (type == NT_ADD && (is_ptr_type(t1) || is_ptr_type(t2))) {
+        if (is_ptr_type(t2)) {
+            swap_nodes(&node->ops[0], &node->ops[1]);
+            swap_symbols(&t1, &t2);
+        }
+        if (t2 == &sym_int || t2 == &sym_char || t2->type == ST_ENUM_CONST) {
+            if (!convert_ops_to(&node->ops[1], 1, &sym_int)) {
+                return 0;
+            }
+            node->type_sym = t1;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (level <= 10) {
+        struct symbol *common_type = arith_common_type(t1, t2);
+        node->type_sym = (level == 6 || level == 7) ? &sym_int : common_type;
+
+        if (node->type_sym == &sym_float) {
+            if (level <= 5 || level == 8 || node->type == NT_MOD) {
+                return 0;
+            }
+        }
+
+        if (!convert_ops_to(node->ops, 2, common_type)) {
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
 static struct node *parse_expr(int level);
 static struct node *parse_cast_expr();
 static int is_parse_type_specifier();
@@ -425,6 +635,14 @@ static struct node *parse_cond_expr()
         CONSUME(TOK_COLON)
         PARSE(new_node->ops[2], expr, 1)
         node = (struct node*)new_node;
+
+        if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+            node->type_sym = arith_common_type(new_node->ops[1]->type_sym, new_node->ops[2]->type_sym);
+            if (!convert_ops_to(&new_node->ops[1], 2, node->type_sym)) {
+                parser_error("wrong operand type");
+                return NULL;
+            }
+        }
     }
     return node;
 }
@@ -566,61 +784,6 @@ static struct node *parse_expr_subnode(int level)
     return NULL;
 }
 
-int is_compatible_types(struct symbol *s1, struct symbol *s2);
-
-int is_compatible_symtable(symtable_t s1, symtable_t s2)
-{
-    if (symtable_size(s1) != symtable_size(s2)) {
-        return 0;
-    }
-    symtable_iter_t iter = symtable_first(s1);
-    symtable_iter_t iter2 = symtable_first(s2);
-    for (; iter != NULL; iter = symtable_iter_next(iter), iter2 = symtable_iter_next(iter2)) {
-        if (!is_compatible_types(symtable_iter_value(iter), symtable_iter_value(iter2))) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int is_compatible_types(struct symbol *s1, struct symbol *s2)
-{
-    if (s1 == NULL || s2 == NULL) {
-        return 0;
-    }
-
-    while (s1->type == ST_TYPE_ALIAS) {
-        s1 = s1->base_type;
-    }
-
-    while (s2->type == ST_TYPE_ALIAS) {
-        s2 = s2->base_type;
-    }
-
-    if (s1->type == ST_SCALAR_TYPE && s2->type == ST_SCALAR_TYPE) {
-        return s1 == s2;
-    }
-
-    int s1_is_ptr = s1->type == ST_POINTER || s1->type == ST_ARRAY;
-    int s2_is_ptr = s2->type == ST_POINTER || s2->type == ST_ARRAY;
-    int s1_is_variable = s1->type == ST_VARIABLE || s1->type == ST_PARAMETER;
-    int s2_is_variable = s2->type == ST_VARIABLE || s2->type == ST_PARAMETER;
-    if ((s1_is_ptr && s2_is_ptr) || (s1_is_variable && s2_is_variable)) {
-        return is_compatible_types(s1->base_type, s2->base_type);
-    }
-
-    if (s1->type == ST_FUNCTION && s2->type == ST_FUNCTION) {
-        return is_compatible_types(s1->base_type, s2->base_type)
-                && s1->flags == s2->flags
-                && is_compatible_symtable(s1->symtable, s2->symtable);
-    }
-
-    if ((s1->type == ST_STRUCT || s1->type == ST_UNION) && s1->type == s2->type) {
-        return is_compatible_symtable(s1->symtable, s2->symtable);
-    }
-    return 0;
-}
-
 static struct node *parse_expr(int level)
 {
     struct node *node;
@@ -636,29 +799,11 @@ static struct node *parse_expr(int level)
         PARSE(new_node->ops[1], expr_subnode, level)
         node = (struct node*)new_node;
 
-        switch (level) {
-        case 3: /* bit or */
-        case 4: /* bit xor */
-        case 5: /* bit and */
-        case 8: /* shift */
-        case 9: /* additive */
-        case 10: /* multiplicative */
-        {
-            struct symbol *t1 = new_node->ops[0]->type_sym, *t2 = new_node->ops[1]->type_sym;
-            if (is_compatible_types(t1, t2)) {
-                new_node->base.type_sym = t1;
+        if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+            if (!set_binary_expr_type((struct node*)new_node, level, new_node->base.type)) {
+                parser_error("invalid operands");
+                return NULL;
             }
-            break;
-        }
-        case 0: /* comma */
-            new_node->base.type_sym = new_node->ops[1]->type_sym;
-            break;
-        case 1: /* or */
-        case 2: /* and */
-        case 6: /* equality */
-        case 7: /* relational */
-            new_node->base.type_sym = &sym_int;
-            break;
         }
     }
     return node;
@@ -1156,6 +1301,12 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
         } else {
             if (accept(TOK_ASSIGN)) {
                 PARSE(symbol->expr, initializer)
+                if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+                    if (!convert_ops_to(&symbol->expr, 1, symbol->base_type)) {
+                        parser_error("wrong initializer type");
+                        return NULL;
+                    }
+                }
             }
         }
         put_symbol(symbol->name, symbol, SC_NAME);
