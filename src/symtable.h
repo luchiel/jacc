@@ -30,7 +30,6 @@ struct symbol {
     enum symbol_type type;
     const char *name;
     struct symbol *base_type;
-    struct symbol *temp_symbol;
     struct node *expr;
     symtable_t symtable;
     int flags;
