@@ -46,6 +46,65 @@ enum declaration_type {
     DT_STRUCT,
 };
 
+static int next_token()
+{
+    lexer_token_free_data(&token);
+    token = token_next;
+    lexer_next_token(&token_next);
+    while (token_next.type == TOK_COMMENT) {
+        lexer_token_free_data(&token_next);
+        lexer_next_token(&token_next);
+    }
+    return token.type != TOK_ERROR;
+}
+
+static int accept(enum token_type type)
+{
+    if (token.type == type) {
+        next_token();
+        return 1;
+    }
+    return 0;
+}
+
+static void parser_error(const char *message)
+{
+    log_set_pos(token.line, token.column);
+    log_error(message);
+}
+
+static void unexpected_token(const char *string)
+{
+    char buf[255];
+    if (string == NULL) {
+        sprintf(buf, "unexpected token %s", lexer_token_type_name(token.type));
+    } else {
+        sprintf(buf, "unexpected token %s, expected %s", lexer_token_type_name(token.type), string);
+    }
+    parser_error(buf);
+}
+
+static void list_node_ensure_capacity(struct list_node* list, int new_capacity)
+{
+    if (list->capacity < new_capacity) {
+        list->capacity *= 2;
+        if (list->capacity < new_capacity) {
+            list->capacity = new_capacity;
+        }
+        list->items = jacc_realloc(list->items, list->capacity * sizeof(*list->items));
+    }
+}
+
+struct list_node* alloc_list_node()
+{
+    ALLOC_NODE_EX(NT_LIST, node, list_node)
+    node->size = 0;
+    node->capacity = 0;
+    node->items = NULL;
+    list_node_ensure_capacity(node, 4);
+    return node;
+}
+
 static inline int calc_types()
 {
     return (parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES;
@@ -146,7 +205,6 @@ static int is_ptr_type(struct symbol *symbol)
     }
     return 0;
 }
-
 
 static int is_compatible_types(struct symbol *s1, struct symbol *s2);
 
@@ -351,65 +409,6 @@ static struct symbol *parse_declarator(struct symbol *base_type, const char **na
 static struct symbol *parse_declarator_base(const char **name);
 static struct symbol *parse_specifier_qualifier_list();
 static struct symbol *parse_type_specifier();
-
-static int next_token()
-{
-    lexer_token_free_data(&token);
-    token = token_next;
-    lexer_next_token(&token_next);
-    while (token_next.type == TOK_COMMENT) {
-        lexer_token_free_data(&token_next);
-        lexer_next_token(&token_next);
-    }
-    return token.type != TOK_ERROR;
-}
-
-static int accept(enum token_type type)
-{
-    if (token.type == type) {
-        next_token();
-        return 1;
-    }
-    return 0;
-}
-
-static void parser_error(const char *message)
-{
-    log_set_pos(token.line, token.column);
-    log_error(message);
-}
-
-static void unexpected_token(const char *string)
-{
-    char buf[255];
-    if (string == NULL) {
-        sprintf(buf, "unexpected token %s", lexer_token_type_name(token.type));
-    } else {
-        sprintf(buf, "unexpected token %s, expected %s", lexer_token_type_name(token.type), string);
-    }
-    parser_error(buf);
-}
-
-static void list_node_ensure_capacity(struct list_node* list, int new_capacity)
-{
-    if (list->capacity < new_capacity) {
-        list->capacity *= 2;
-        if (list->capacity < new_capacity) {
-            list->capacity = new_capacity;
-        }
-        list->items = jacc_realloc(list->items, list->capacity * sizeof(*list->items));
-    }
-}
-
-struct list_node* alloc_list_node()
-{
-    ALLOC_NODE_EX(NT_LIST, node, list_node)
-    node->size = 0;
-    node->capacity = 0;
-    node->items = NULL;
-    list_node_ensure_capacity(node, 4);
-    return node;
-}
 
 static struct node *parse_ident()
 {
