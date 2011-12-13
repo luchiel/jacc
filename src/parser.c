@@ -227,6 +227,10 @@ static int is_lvalue(struct node *node)
 {
     switch (node->type) {
     case NT_VARIABLE:
+    case NT_DEREFERENCE:
+    case NT_SUBSCRIPT:
+    case NT_MEMBER:
+    case NT_MEMBER_BY_PTR:
         return 1;
     }
     return 0;
