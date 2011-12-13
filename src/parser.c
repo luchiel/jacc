@@ -606,6 +606,42 @@ static struct node *parse_postfix_expr()
             }
 
             node = (struct node*)unode;
+            if (calc_types()) {
+                switch (unode->base.type) {
+                case NT_SUBSCRIPT:
+                    if (is_ptr_type(unode->ops[1]->type_sym)) {
+                        swap_nodes(&unode->ops[0], &unode->ops[1]);
+                    }
+
+                    if (!is_ptr_type(unode->ops[0]->type_sym)) {
+                        parser_error("expected pointer type");
+                        return NULL;
+                    }
+
+                    struct symbol *type = unode->ops[1]->type_sym;
+                    if (type != &sym_int && type != &sym_char && type->type != ST_ENUM_CONST) {
+                        parser_error("array index must be integer expression");
+                        return NULL;
+                    }
+
+                    if (!convert_ops_to(&unode->ops[1], 1, &sym_int)) {
+                        parser_error("internal error: conversion failed");
+                        return NULL;
+                    }
+
+                    ALLOC_NODE_EX(NT_ADD, add_node, binary_node)
+                    add_node->ops[0] = unode->ops[0];
+                    add_node->ops[1] = unode->ops[1];
+                    add_node->base.type_sym = unode->ops[0]->type_sym;
+
+                    ALLOC_NODE_EX(NT_DEREFERENCE, deref_node, unary_node)
+                    deref_node->ops[0] = (struct node*)add_node;
+                    deref_node->base.type_sym = deref_node->ops[0]->type_sym->base_type;
+
+                    node = (struct node*)deref_node;
+                    break;
+                }
+            }
             break;
         }
         default:
