@@ -223,6 +223,24 @@ static int is_compatible_symtable(symtable_t s1, symtable_t s2)
     return 1;
 }
 
+static int is_lvalue(struct node *node)
+{
+    switch (node->type) {
+    case NT_VARIABLE:
+        return 1;
+    }
+    return 0;
+}
+
+static int check_is_lvalue(struct node *node)
+{
+    if (!is_lvalue(node)) {
+        parser_error("lvalue expected");
+        return 0;
+    }
+    return 1;
+}
+
 static struct symbol *resolve_alias(struct symbol *symbol)
 {
     while (symbol->type == ST_TYPE_ALIAS) {
@@ -400,6 +418,20 @@ static int set_binary_expr_type(struct node *node, int level, enum node_type typ
     return 1;
 }
 
+static int set_inc_expr_type(struct node *node)
+{
+    if (!check_is_lvalue(node->ops[0])) {
+        return 0;
+    }
+    struct symbol *type = node->ops[0]->type_sym;
+    if (type != &sym_int && type != &sym_char && type != &sym_float) {
+        parser_error("invalid operand");
+        return 0;
+    }
+    node->type_sym = type;
+    return 1;
+}
+
 static struct node *parse_expr(int level);
 static struct node *parse_cast_expr();
 static int is_parse_type_specifier();
@@ -531,6 +563,9 @@ static struct node *parse_postfix_expr()
             ALLOC_NODE_EX(get_postfix_node_type(), unode, unary_node)
             unode->ops[0] = node;
             node = (struct node*)unode;
+            if (calc_types() && !set_inc_expr_type(node)) {
+                return NULL;
+            }
             next_token();
             break;
         }
@@ -593,27 +628,52 @@ static enum node_type get_unary_node_type()
 
 static struct node *parse_unary_expr()
 {
+    ALLOC_NODE_EX(get_unary_node_type(), node, unary_node);
     switch (token.type) {
+    case TOK_INC_OP:
+    case TOK_DEC_OP:
+    {
+        ALLOC_NODE_EX(get_unary_node_type(), node, unary_node);
+        next_token();
+        PARSE(node->ops[0], unary_expr)
+        node->base.type_sym = node->ops[0]->type_sym;
+        if (calc_types() && !set_inc_expr_type((struct node*)node)) {
+           return NULL;
+        }
+        return (struct node*)node;
+    }
     case TOK_AMP:
     case TOK_STAR:
     case TOK_ADD_OP:
     case TOK_SUB_OP:
     case TOK_TILDE:
     case TOK_NEG_OP:
-    case TOK_INC_OP:
-    case TOK_DEC_OP:
     {
         ALLOC_NODE_EX(get_unary_node_type(), node, unary_node);
         next_token();
-        switch (node->base.type) {
-        case NT_PREFIX_INC:
-        case NT_PREFIX_DEC:
-            PARSE(node->ops[0], unary_expr)
-            break;
-        default:
-            PARSE(node->ops[0], cast_expr)
+        PARSE(node->ops[0], cast_expr)
+        if (calc_types()) {
+            struct symbol *type = node->ops[0]->type_sym;
+            switch (node->base.type) {
+            case NT_LOGICAL_NEGATION:
+                if (!convert_ops_to(node->ops, 1, &sym_int)) {
+                    parser_error("invalid operand");
+                    return NULL;
+                }
+                node->base.type_sym = &sym_int;
+                break;
+            case NT_NEGATION:
+            case NT_IDENTITY:
+                if (type != &sym_int && type != &sym_char && type != &sym_float && type->type != ST_ENUM_CONST) {
+                    parser_error("invalid operand");
+                    return NULL;
+                }
+                node->base.type_sym = node->ops[0]->type_sym;
+                break;
+            default:
+                node->base.type_sym = node->ops[0]->type_sym;
+            }
         }
-        node->base.type_sym = node->ops[0]->type_sym;
         return (struct node*)node;
     }
     }
