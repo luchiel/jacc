@@ -98,12 +98,12 @@ if __name__ == '__main__':
         fail_list = ""
         if stats['failed']:
             fail_list = " - %s" % (', '.join(stats['failed']))
-        print("%s: %s (%d/%d)%s" % (dir, status, succeed, stats['total'], fail_list))
+        print("%s (%d/%d): %s%s" % (dir, succeed, stats['total'], status, fail_list))
 
     succeed = total - total_failed
     print("---")
 
-    print("%s (%d/%d, %.2f seconds)" % (
+    print("%s (%d/%d succeed, %.2f seconds)" % (
         get_status(total_failed),
         succeed,
         total,
