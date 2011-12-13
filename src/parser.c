@@ -670,6 +670,22 @@ static struct node *parse_unary_expr()
                 }
                 node->base.type_sym = node->ops[0]->type_sym;
                 break;
+            case NT_DEREFERENCE:
+                if (!is_ptr_type(type)) {
+                    parser_error("expected pointer type");
+                    return NULL;
+                }
+                node->base.type_sym = node->ops[0]->type_sym->base_type;
+                break;
+            case NT_REFERENCE:
+                if (!check_is_lvalue(node->ops[0])) {
+                    return NULL;
+                }
+                node->base.type_sym = jacc_malloc(sizeof(struct symbol));
+                node->base.type_sym->type = ST_POINTER;
+                node->base.type_sym->base_type = type;
+                node->base.type_sym->flags = 0;
+                break;
             default:
                 node->base.type_sym = node->ops[0]->type_sym;
             }
