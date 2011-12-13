@@ -5,7 +5,7 @@ import os
 import difflib
 import time
 
-jacc_cmd = lambda x: 'jacc {0} "%(input)s" > "%(output)s" 2>&1'.format(x)
+jacc_cmd = lambda x: 'jacc %s "%%(input)s" > "%%(output)s" 2>&1' % x
 
 tests = {
     'lexer': jacc_cmd('lex'),
