@@ -46,6 +46,11 @@ enum declaration_type {
     DT_STRUCT,
 };
 
+static inline int calc_types()
+{
+    return (parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES;
+}
+
 static char* generate_name(const char *prefix)
 {
     char *buf = jacc_malloc(16);
@@ -459,12 +464,12 @@ static struct node *parse_primary_expr()
     }
     case TOK_IDENT:
     {
-        if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+        if (calc_types()) {
             EXPECT(TOK_IDENT)
             ALLOC_NODE_EX(NT_VARIABLE, var_node, var_node)
             var_node->symbol = get_symbol(token.value.str_val, SC_NAME);
             if (!is_var_symbol(var_node->symbol)) {
-                parser_error("Expected variable type");
+                parser_error("expected variable type");
                 return NULL;
             }
             var_node->base.type_sym = var_node->symbol->base_type;
@@ -636,7 +641,7 @@ static struct node *parse_cond_expr()
         PARSE(new_node->ops[2], expr, 1)
         node = (struct node*)new_node;
 
-        if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+        if (calc_types()) {
             node->type_sym = arith_common_type(new_node->ops[1]->type_sym, new_node->ops[2]->type_sym);
             if (!convert_ops_to(&new_node->ops[1], 2, node->type_sym)) {
                 parser_error("wrong operand type");
@@ -799,7 +804,7 @@ static struct node *parse_expr(int level)
         PARSE(new_node->ops[1], expr_subnode, level)
         node = (struct node*)new_node;
 
-        if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+        if (calc_types()) {
             if (!set_binary_expr_type((struct node*)new_node, level, new_node->base.type)) {
                 parser_error("invalid operands");
                 return NULL;
@@ -1301,7 +1306,7 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
         } else {
             if (accept(TOK_ASSIGN)) {
                 PARSE(symbol->expr, initializer)
-                if ((parser_flags & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+                if (calc_types()) {
                     if (!convert_ops_to(&symbol->expr, 1, symbol->base_type)) {
                         parser_error("wrong initializer type");
                         return NULL;
