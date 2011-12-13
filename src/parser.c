@@ -206,6 +206,20 @@ static int is_ptr_type(struct symbol *symbol)
     return 0;
 }
 
+static int is_struct_type(struct symbol *symbol)
+{
+    if (symbol == NULL) {
+        return 0;
+    }
+
+    switch (symbol->type) {
+    case ST_STRUCT:
+    case ST_UNION:
+        return 1;
+    }
+    return 0;
+}
+
 static int is_compatible_types(struct symbol *s1, struct symbol *s2);
 
 static int is_compatible_symtable(symtable_t s1, symtable_t s2)
@@ -247,7 +261,7 @@ static int check_is_lvalue(struct node *node)
 
 static struct symbol *resolve_alias(struct symbol *symbol)
 {
-    while (symbol->type == ST_TYPE_ALIAS) {
+    while (symbol->type == ST_TYPE_ALIAS || is_var_symbol(symbol)) {
         symbol = symbol->base_type;
     }
     return symbol;
@@ -427,7 +441,7 @@ static int set_inc_expr_type(struct node *node)
     if (!check_is_lvalue(node->ops[0])) {
         return 0;
     }
-    struct symbol *type = node->ops[0]->type_sym;
+    struct symbol *type = resolve_alias(node->ops[0]->type_sym);
     if (type != &sym_int && type != &sym_char && type != &sym_float) {
         parser_error("invalid operand");
         return 0;
@@ -507,7 +521,7 @@ static struct node *parse_primary_expr()
                 parser_error("expected variable type");
                 return NULL;
             }
-            var_node->base.type_sym = var_node->symbol->base_type;
+            var_node->base.type_sym = var_node->symbol;
             next_token();
             return (struct node*)var_node;
         } else {
@@ -555,6 +569,25 @@ static struct node *parse_nop()
     return (struct node *)node;
 }
 
+static int process_member_node(struct node *node)
+{
+    struct symbol *obj = resolve_alias(node->ops[0]->type_sym);
+    if (!is_struct_type(obj)) {
+        parser_error("expected struct or union");
+        return 0;
+    }
+
+    const char *field_name = ((struct string_node*)node->ops[1])->value;
+    struct symbol *field = symtable_get(obj->symtable, field_name, SC_NAME);
+    if (field == NULL || field->type != ST_VARIABLE) {
+        parser_error("expected valid field name");
+        return 0;
+    }
+    node->ops[1]->type_sym = field;
+    node->type_sym = field->base_type;
+    return 1;
+}
+
 static struct node *parse_postfix_expr()
 {
     struct node *node;
@@ -596,6 +629,7 @@ static struct node *parse_postfix_expr()
             case NT_MEMBER:
             case NT_MEMBER_BY_PTR:
                 PARSE(unode->ops[1], ident)
+                unode->ops[1]->type_sym = NULL;
                 break;
             }
 
@@ -609,11 +643,12 @@ static struct node *parse_postfix_expr()
             if (calc_types()) {
                 switch (unode->base.type) {
                 case NT_SUBSCRIPT:
-                    if (is_ptr_type(unode->ops[1]->type_sym)) {
+                {
+                    if (is_ptr_type(resolve_alias(unode->ops[1]->type_sym))) {
                         swap_nodes(&unode->ops[0], &unode->ops[1]);
                     }
 
-                    if (!is_ptr_type(unode->ops[0]->type_sym)) {
+                    if (!is_ptr_type(resolve_alias(unode->ops[0]->type_sym))) {
                         parser_error("expected pointer type");
                         return NULL;
                     }
@@ -632,13 +667,36 @@ static struct node *parse_postfix_expr()
                     ALLOC_NODE_EX(NT_ADD, add_node, binary_node)
                     add_node->ops[0] = unode->ops[0];
                     add_node->ops[1] = unode->ops[1];
-                    add_node->base.type_sym = unode->ops[0]->type_sym;
+                    add_node->base.type_sym = resolve_alias(unode->ops[0]->type_sym);
 
                     ALLOC_NODE_EX(NT_DEREFERENCE, deref_node, unary_node)
                     deref_node->ops[0] = (struct node*)add_node;
                     deref_node->base.type_sym = deref_node->ops[0]->type_sym->base_type;
 
                     node = (struct node*)deref_node;
+                    break;
+                }
+                case NT_MEMBER_BY_PTR:
+                {
+                    if (!is_ptr_type(resolve_alias(unode->ops[0]->type_sym))) {
+                        parser_error("expected pointer type");
+                        return NULL;
+                    }
+                    ALLOC_NODE_EX(NT_DEREFERENCE, deref_node, unary_node)
+                    deref_node->ops[0] = node->ops[0];
+                    deref_node->base.type_sym = resolve_alias(deref_node->ops[0]->type_sym)->base_type;
+
+                    node->type = NT_MEMBER;
+                    node->ops[0] = (struct node*)deref_node;
+                    if (!process_member_node(node)) {
+                        return NULL;
+                    }
+                    break;
+                }
+                case NT_MEMBER:
+                    if (!process_member_node(node)) {
+                        return NULL;
+                    }
                     break;
                 }
             }
@@ -723,7 +781,7 @@ static struct node *parse_unary_expr()
                 }
                 node->base.type_sym = jacc_malloc(sizeof(struct symbol));
                 node->base.type_sym->type = ST_POINTER;
-                node->base.type_sym->base_type = type;
+                node->base.type_sym->base_type = is_var_symbol(type) ? type->base_type : type;
                 node->base.type_sym->flags = 0;
                 break;
             default:

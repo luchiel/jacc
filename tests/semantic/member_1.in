@@ -1,0 +1,21 @@
+void member_test()
+{
+    struct {
+        int a, b, c;
+        struct {
+            char c;
+        } s;
+        union {
+            int a;
+            char t;
+        } u;
+    } t, *r;
+
+    t.a;
+    t.s.c;
+    t.u.a;
+
+    r->c;
+    r->s.c;
+    r->u.a;
+}

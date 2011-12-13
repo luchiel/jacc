@@ -1,0 +1,78 @@
+member_test is function returning nothing defined as {
+   (list)
+   [
+      tag "@struct1" is struct @struct1 defined as {
+         a is variable of type <int>
+         b is variable of type <int>
+         c is variable of type <int>
+         tag "@struct2" is struct @struct2 defined as {
+            c is variable of type <char>
+         }
+         s is variable of type <struct @struct2>
+         tag "@struct3" is union @struct3 defined as {
+            a is variable of type <int>
+            t is variable of type <char>
+         }
+         u is variable of type <union @struct3>
+      }
+      t is variable of type <struct @struct1>
+      r is variable of type <pointer to struct @struct1>
+   ]
+    +-(.) -> <int>
+       |
+       +-(var t) -> <struct @struct1>
+       |
+       +-(ident a) -> <int>
+
+    +-(.) -> <char>
+       |
+       +-(.) -> <struct @struct2>
+       |  |
+       |  +-(var t) -> <struct @struct1>
+       |  |
+       |  +-(ident s) -> <struct @struct2>
+       |
+       +-(ident c) -> <char>
+
+    +-(.) -> <int>
+       |
+       +-(.) -> <union @struct3>
+       |  |
+       |  +-(var t) -> <struct @struct1>
+       |  |
+       |  +-(ident u) -> <union @struct3>
+       |
+       +-(ident a) -> <int>
+
+    +-(.) -> <int>
+       |
+       +-(*) -> <struct @struct1>
+       |  |
+       |  +-(var r) -> <pointer to struct @struct1>
+       |
+       +-(ident c) -> <int>
+
+    +-(.) -> <char>
+       |
+       +-(.) -> <struct @struct2>
+       |  |
+       |  +-(*) -> <struct @struct1>
+       |  |  |
+       |  |  +-(var r) -> <pointer to struct @struct1>
+       |  |
+       |  +-(ident s) -> <struct @struct2>
+       |
+       +-(ident c) -> <char>
+
+    +-(.) -> <int>
+       |
+       +-(.) -> <union @struct3>
+       |  |
+       |  +-(*) -> <struct @struct1>
+       |  |  |
+       |  |  +-(var r) -> <pointer to struct @struct1>
+       |  |
+       |  +-(ident u) -> <union @struct3>
+       |
+       +-(ident a) -> <int>
+}

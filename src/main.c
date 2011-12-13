@@ -278,7 +278,11 @@ void print_node(struct node *node, int level, int root)
         printf(" -> <");
         int old_indent = show_indents[level + 1];
         show_indents[level + 1] = 0;
-        print_symbol(((struct cast_node*)node)->base.type_sym, level + 1, 0);
+        if (node->type_sym->type == ST_VARIABLE || node->type_sym->type == ST_PARAMETER) {
+            print_symbol(node->type_sym->base_type, level + 1, 1);
+        } else {
+            print_symbol(node->type_sym, level + 1, 1);
+        }
         show_indents[level + 1] = old_indent;
         printf(">");
     }
