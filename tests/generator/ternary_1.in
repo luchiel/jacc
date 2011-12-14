@@ -1,0 +1,5 @@
+void main()
+{
+    printf("%d\n", 1 ? 6 : 2);
+    printf("%d\n", 0 ? 6 : 2);
+}

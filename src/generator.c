@@ -321,6 +321,20 @@ static void generate_expr(struct node *expr)
         emit(ASM_PUSH, label(str_label));
         return;
     }
+    case NT_TERNARY:
+    {
+        char *l1 = gen_label(), *l2 = gen_label();
+        generate_expr(expr->ops[0]);
+        emit(ASM_POP, eax);
+        emit(ASM_TEST, eax, eax);
+        emit(ASM_JZ, label(l1));
+        generate_expr(expr->ops[1]);
+        emit(ASM_JMP, label(l2));
+        emit_label(l1);
+        generate_expr(expr->ops[2]);
+        emit_label(l2);
+        return;
+    }
     case NT_INT:
         emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
         return;
