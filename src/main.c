@@ -7,6 +7,7 @@
 #include "buffer.h"
 #include "log.h"
 #include "symtable.h"
+#include "generator.h"
 
 int show_indents[255];
 
@@ -18,6 +19,7 @@ char *simple_commands[] = {
     "parse_expr",
     "parse_stmt",
     "parse",
+    "compile",
 };
 
 void print_usage()
@@ -213,6 +215,10 @@ void print_symbol(struct symbol *symbol, int level, int depth)
 
 void print_symtable(symtable_t symtable, int level)
 {
+    if (symtable == NULL) {
+        return;
+    }
+
     symtable_iter_t iter = symtable_first(symtable);
     show_indents[level] = 0;
     for (; iter != NULL; iter = symtable_iter_next(iter)) {
@@ -231,6 +237,10 @@ void print_symtable(symtable_t symtable, int level)
 
 void print_node(struct node *node, int level, int root)
 {
+    if (node == NULL) {
+        return;
+    }
+
     struct node_info *info = parser_node_info(node);
     int i, print_type = 1;
     show_indents[level + 1] = 1;
@@ -314,24 +324,28 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
 
     struct node* node = NULL;
     symtable_t symtable = NULL;
+    code_t code = NULL;
 
     if (strcmp(cmd, "parse_expr") == 0) {
         parser_flags_set(0);
         node = parser_parse_expr();
+        print_node(node, 0, 0);
     } else if (strcmp(cmd, "parse_stmt") == 0) {
         parser_flags_set(0);
         node = parser_parse_statement();
+        print_node(node, 0, 0);
     } else if (strcmp(cmd, "parse") == 0) {
         symtable = parser_parse();
+        print_symtable(symtable, 0);
+    } else if (strcmp(cmd, "compile") == 0) {
+        symtable = parser_parse();
+        code = generator_process(symtable);
     }
 
-    if (node != NULL) {
-        print_node(node, 0, 0);
-        parser_free_node(node);
-    } else if (symtable != NULL) {
-        print_symtable(symtable, 0);
-        symtable_destroy(symtable, 1);
-    }
+    parser_free_node(node);
+    symtable_destroy(symtable, 1);
+    generator_free_code(code);
+
     parser_destroy();
     lexer_destroy();
 

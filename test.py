@@ -13,6 +13,7 @@ tests = {
     'statements': jacc_cmd('parse_stmt'),
     'declarations': jacc_cmd('parse'),
     'semantic': jacc_cmd('parse'),
+    'generator': jacc_cmd('compile'),
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))
