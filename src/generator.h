@@ -44,6 +44,7 @@ enum asm_opcode_type {
     ACT_NOP,
     ACT_TEXT,
     ACT_COMMAND,
+    ACT_DATA,
 };
 
 struct asm_opcode {

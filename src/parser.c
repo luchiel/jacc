@@ -26,7 +26,7 @@ symtable_t symtables[SYMTABLE_MAX_DEPTH];
 int current_symtable;
 int name_uid = 0;
 int parser_flags = 0;
-struct symbol sym_null, sym_void, sym_int, sym_float, sym_char, sym_char_ptr;
+struct symbol sym_null, sym_void, sym_int, sym_float, sym_char, sym_char_ptr, sym_printf;
 
 pull_t parser_pull;
 
@@ -1667,10 +1667,21 @@ extern void parser_init()
     init_type("double", &sym_float, 4);
     init_type("float", &sym_float, 4);
     init_type("char", &sym_char, 1);
+    init_type("printf", &sym_printf, 0);
 
     sym_char_ptr.type = ST_POINTER;
     sym_char_ptr.base_type = &sym_char;
     sym_char_ptr.size = sym_int.size;
+
+    sym_printf.type = ST_FUNCTION;
+    sym_printf.flags = SF_EXTERN | SF_VARIADIC;
+    sym_printf.base_type = &sym_void;
+    sym_printf.symtable = symtable_create(SYMTABLE_DEFAULT_SIZE);
+
+    struct symbol *param = alloc_symbol(ST_VARIABLE);
+    param->name = "message";
+    param->base_type = &sym_char_ptr;
+    symtable_set(sym_printf.symtable, param->name, SC_NAME, param);
 
     token.type = TOK_ERROR;
     token_next.type = TOK_ERROR;

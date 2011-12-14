@@ -6,6 +6,7 @@
 #include "generator.h"
 #include "memory.h"
 #include "symtable.h"
+#include "parser.h"
 
 struct asm_command commands[] = {
 #define COMMAND(name, repr, op_count) { #repr, op_count },
@@ -24,6 +25,7 @@ struct asm_operand registers[] = {
 #undef REGISTER
 
 code_t cur_code;
+int label_counter;
 
 static int print_operand(struct asm_operand *op)
 {
@@ -60,7 +62,7 @@ static int print_operand(struct asm_operand *op)
         printf("%d", op->data.value);
         break;
     case AOT_LABEL:
-        printf("%s", op->data.label);
+        printf("_%s", op->data.label);
         break;
     }
     return 1;
@@ -84,6 +86,7 @@ static void print_opcode(struct asm_opcode *opcode)
     case ACT_NOP:
         break;
     case ACT_TEXT:
+    case ACT_DATA:
         printf("%s\n", opcode->data.text);
         break;
     }
@@ -138,6 +141,14 @@ static void emit_text(char *format, ...)
     add_opcode(opcode);
 }
 
+static void emit_data(char *data)
+{
+    struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
+    opcode->type = ACT_DATA;
+    opcode->data.text = data;
+    add_opcode(opcode);
+}
+
 static struct asm_operand *constant(int value)
 {
     struct asm_operand *operand = jacc_malloc(sizeof(*operand));
@@ -165,27 +176,116 @@ static struct asm_operand *memory(struct asm_operand *base, struct asm_operand *
     return operand;
 }
 
+static struct asm_operand *deref(struct asm_operand *base)
+{
+    return memory(base, NULL, NULL, 1);
+}
+
+static void generate_expr(struct node *expr);
+
+static void generate_int_binop(struct node *expr)
+{
+    generate_expr(expr->ops[0]);
+    generate_expr(expr->ops[1]);
+    emit(ASM_POP, ebx);
+    emit(ASM_POP, eax);
+
+    switch (expr->type) {
+    case NT_ADD: emit(ASM_ADD, eax, ebx); break;
+    case NT_SUB: emit(ASM_SUB, eax, ebx); break;
+    case NT_MUL: emit(ASM_IMUL, ebx); break;
+    case NT_LSHIFT:
+        emit(ASM_MOV, ecx, ebx);
+        emit(ASM_SAL, eax, cl);
+        break;
+    case NT_RSHIFT:
+        emit(ASM_MOV, ecx, ebx);
+        emit(ASM_SAR, eax, cl);
+        break;
+    case NT_DIV:
+    case NT_MOD:
+        emit(ASM_CDQ);
+        emit(ASM_IDIV, ebx);
+        if (expr->type == NT_MOD) emit(ASM_MOV, eax, edx);
+        break;
+    }
+    emit(ASM_PUSH, eax);
+}
+
+static char *gen_label()
+{
+    char *buf = jacc_malloc(8);
+    sprintf(buf, "@%d", label_counter);
+    label_counter++;
+    return buf;
+}
+
 static void generate_expr(struct node *expr)
 {
+    switch (expr->type) {
+    case NT_LIST:
+    {
+        struct list_node *list = (struct list_node*)expr;
+        int i = 0;
+        for (; i < list->size; i++) {
+            generate_expr(list->items[i]);
+        }
+        return;
+    }
+    case NT_CALL:
+    {
+        struct list_node *list = (struct list_node*)expr->ops[1];
+        int i = list->size - 1, size = 0;
+        for (; i >= 0; i--) {
+            generate_expr(list->items[i]);
+            size += list->items[i]->type_sym->size;
+        }
+        emit(ASM_CALL, deref(label(expr->ops[0]->type_sym->name))); // @todo function pointers
+        emit(ASM_ADD, esp, constant(size));
+        return;
+    }
+    case NT_STRING:
+    {
+        const char *str = ((struct string_node*)expr)->value;
+        int str_len = strlen(str);
 
+        char *str_label = gen_label();
+        char *buf = jacc_malloc(15 + 4 * str_len);
+        char *ptr = buf;
+
+        ptr += sprintf(ptr, "_%s db ", str_label);
+        int i = 0;
+        for (; i <= str_len; i++) {
+            ptr += sprintf(ptr, i == 0 ? "%d" : ",%d", str[i]);
+        }
+
+        emit_data(buf);
+        emit(ASM_PUSH, label(str_label));
+        return;
+    }
+    case NT_INT:
+        emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
+        return;
+    }
+
+    switch (parser_node_info(expr)->cat) {
+    case NC_BINARY:
+        generate_int_binop(expr);
+        break;
+    default:
+        emit_text("; unknown node %s", parser_node_info(expr)->repr);
+    }
 }
 
 static void generate_function(struct symbol *func)
 {
     if ((func->flags & SF_EXTERN) == SF_EXTERN) {
-        emit_text("extrn _%s", func->name);
         return;
     }
 
     int is_main = strcmp(func->name, "main") == 0;
 
     emit_text("; start %s", func->name);
-    if ((func->flags & SF_STATIC) != SF_STATIC) {
-        emit_text("public _%s", func->name);
-        if (is_main) {
-            emit_text("public _main as 'main'");
-        }
-    }
 
     emit_text("_%s:", func->name);
     if (!is_main) {
@@ -201,8 +301,7 @@ static void generate_function(struct symbol *func)
         emit(ASM_RET);
     } else {
         emit(ASM_PUSH, constant(0));
-        emit_text("\textrn exit");
-        emit(ASM_CALL, label("exit"));
+        emit(ASM_CALL, deref(label("ExitProcess")));
     }
 
     emit_text("; end %s\n", func->name);
@@ -213,6 +312,8 @@ extern void generator_init()
 #define REGISTER(name, repr) registers[ART_##name].data.register_name = #repr;
 #include "registers.def"
 #undef REGISTER
+
+    label_counter = 0;
 }
 
 extern void generator_destroy()
@@ -242,10 +343,26 @@ extern code_t generator_process(symtable_t symtable)
 extern void generator_print_code(code_t code)
 {
     int i;
-    printf("format ELF\n\n");
+    printf("format PE console\nentry _main\n");
+    printf("include '%%fasm%%/include/win32a.inc'\n\n");
+    printf("section '.text' code executable\n");
     for (i = 0; i < code->opcode_count; i++) {
-        print_opcode(code->opcodes[i]);
+        if (code->opcodes[i]->type != ACT_DATA) {
+            print_opcode(code->opcodes[i]);
+        }
     }
+
+    printf("section '.data' data readable writable\n\n");
+    for (i = 0; i < code->opcode_count; i++) {
+        if (code->opcodes[i]->type == ACT_DATA) {
+            print_opcode(code->opcodes[i]);
+        }
+    }
+
+    printf("\nsection '.idata' data readable import\n");
+    printf("library kernel32, 'kernel32.dll', msvcrt, 'msvcrt.dll'\n");
+    printf("import kernel32, _ExitProcess, 'ExitProcess'\n");
+    printf("import msvcrt, _printf, 'printf'\n");
 }
 
 static void free_memory_subop(struct asm_operand *operand)
@@ -276,6 +393,7 @@ extern void generator_free_opcode_data(struct asm_opcode *opcode)
         break;
     }
     case ACT_TEXT:
+    case ACT_DATA:
         jacc_free(opcode->data.text);
         break;
     }

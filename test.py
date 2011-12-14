@@ -13,7 +13,7 @@ tests = {
     'statements': jacc_cmd('parse_stmt'),
     'declarations': jacc_cmd('parse'),
     'semantic': jacc_cmd('parse'),
-    'generator': jacc_cmd('compile'),
+    'generator': 'jacc compile "%(input)s" > "%(asm_output)s" 2>&1 && fasm "%(asm_output)s" "%(exe_output)s" 2>&1 > "%(output)s" && "%(exe_output)s" > "%(output)s"',
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))
@@ -41,15 +41,20 @@ def run_tests(dir, cmd_template):
         total += 1
 
         output_file = change_ext(test, '.out')
+        asm_output_file = change_ext(test, '.asm')
+        exe_output_file = change_ext(test, '.exe')
         answer_file = change_ext(test, '.answer')
         diff_file = change_ext(test, '.diff')
 
         cmd = cmd_template % {
             'input': test,
             'output': output_file,
+            'exe_output': exe_output_file,
+            'asm_output': asm_output_file,
         }
 
         unlink(output_file)
+        unlink(exe_output_file)
         unlink(diff_file)
 
         ret_code = os.system(cmd)
