@@ -278,6 +278,10 @@ static void get_ident(struct token *token)
         get_char();
     } while (is_ident(cur_char));
 
+    if (buffer_size(buffer) > 200) {
+        lexer_error(token, "ident is too long");
+        return;
+    }
     buffer_append(buffer, 0);
 
     token->type = get_ident_type(buffer_data(buffer));
