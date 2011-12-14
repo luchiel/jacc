@@ -456,6 +456,10 @@ static int set_binary_expr_type(struct node *node)
         }
     }
 
+    if (node->type == NT_OR || node->type == NT_AND) {
+        common_type = &sym_int;
+    }
+
     if (!convert_ops_to(node->ops, 2, common_type)) {
         return 0;
     }

@@ -1,0 +1,25 @@
+test_binary is function returning nothing defined as {
+   (list)
+    |
+    +-(&&) -> <int>
+    |  |
+    |  +-(1)
+    |  |
+    |  +-(0)
+    |
+    +-(||) -> <int>
+    |  |
+    |  +-(1)
+    |  |
+    |  +-(cast to <int>)
+    |     |
+    |     +-(3.000000)
+    |
+    +-(&&) -> <int>
+       |
+       +-(cast to <int>)
+       |  |
+       |  +-(6.000000)
+       |
+       +-(1)
+}
