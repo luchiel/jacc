@@ -4,6 +4,7 @@
 #include "symtable.h"
 
 #define PF_RESOLVE_NAMES 1
+#define PF_ADD_INITIALIZERS 2
 
 #define DEFINE_NODE_TYPE(name, op_count) \
     struct name { \

@@ -1,0 +1,10 @@
+void t(char *msg, int a, int b)
+{
+    printf(msg, a, b, a + b);
+}
+
+void main()
+{
+    t("%d + %d = %d\n", 43, 5);
+    t("%d + %d = %d\n", 1, 1);
+}

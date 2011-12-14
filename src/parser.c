@@ -29,6 +29,7 @@ int parser_flags = 0;
 struct symbol sym_null, sym_void, sym_int, sym_float, sym_char, sym_char_ptr, sym_printf;
 
 pull_t parser_pull;
+int function_locals_size;
 
 struct token token;
 struct token token_next;
@@ -43,7 +44,11 @@ enum declaration_type {
     DT_GLOBAL,
     DT_LOCAL,
     DT_STRUCT,
+    DT_PARAMETER,
 };
+
+enum declaration_type cur_decl_type;
+struct list_node *initializers_list;
 
 static void init_node(struct node *node, int size, enum node_type type)
 {
@@ -191,6 +196,7 @@ static int is_var_symbol(struct symbol *symbol)
 
     switch (symbol->type) {
     case ST_VARIABLE:
+    case ST_GLOBAL_VARIABLE:
     case ST_PARAMETER:
         return 1;
     }
@@ -290,6 +296,8 @@ static struct symbol *get_callable(struct symbol *symbol)
     case ST_FUNCTION:
         return symbol;
     case ST_VARIABLE:
+    case ST_GLOBAL_VARIABLE:
+    case ST_PARAMETER:
         if (symbol->base_type->type == ST_POINTER
                 && symbol->base_type->base_type->type == ST_FUNCTION)
         {
@@ -305,6 +313,7 @@ static enum symbol_type get_generic_type(struct symbol *symbol)
     enum symbol_type result = resolve_alias(symbol)->type;
     switch (result) {
     case ST_PARAMETER: return ST_VARIABLE;
+    case ST_GLOBAL_VARIABLE: return ST_VARIABLE;
     case ST_ARRAY: return ST_POINTER;
     }
     return result;
@@ -707,10 +716,13 @@ static struct node *parse_postfix_expr()
                     return NULL;
                 }
 
-                int i = 0;
+                int i = 0, offset = 0;
                 symtable_iter_t iter = symtable_first(func->symtable);
                 for (; iter != NULL; iter = symtable_iter_next(iter), i++) {
-                    struct symbol *type = symtable_iter_value(iter)->base_type;
+                    struct symbol *param = symtable_iter_value(iter);
+                    struct symbol *type = param->base_type;
+                    param->offset = offset;
+                    offset += type->size;
                     if (!convert_ops_to(&list_node->items[i], 1, type)) {
                         parser_error("incompatible argument type");
                         return NULL;
@@ -1150,7 +1162,7 @@ static struct node *parse_opt_expr_with(enum token_type type)
     return node;
 }
 
-static struct symbol *parse_declaration(enum declaration_type decl_type);
+static struct symbol *parse_declaration();
 
 static struct node *parse_stmt()
 {
@@ -1303,9 +1315,17 @@ static struct node *parse_stmt()
             PARSE(label_node->ops[1], stmt)
             return (struct node*)label_node;
         }
-        if (is_parse_type_specifier(DT_LOCAL)) {
-            parse_declaration(DT_LOCAL);
-            return parse_nop();
+        if (is_parse_type_specifier()) {
+            if ((parser_flags & PF_ADD_INITIALIZERS) == PF_ADD_INITIALIZERS) {
+                initializers_list = alloc_list_node();
+                parse_declaration();
+                struct node *node = (struct node*)initializers_list;
+                initializers_list = NULL;
+                return node;
+            } else {
+                parse_declaration();
+                return parse_nop();
+            }
         }
         struct node *node;
         PARSE(node, expr, 0)
@@ -1341,6 +1361,9 @@ static struct symbol *parse_array_declarator(struct symbol *base_type)
 static struct symbol *parse_function_declarator(struct symbol *base_type)
 {
     struct symbol *func = alloc_symbol(ST_FUNCTION);
+    enum declaration_type old_decl_type = cur_decl_type;
+    cur_decl_type = DT_PARAMETER;
+
     func->base_type = base_type;
 
     push_symtable();
@@ -1367,6 +1390,7 @@ static struct symbol *parse_function_declarator(struct symbol *base_type)
     }
     CONSUME(TOK_RPAREN)
     pop_symtable();
+    cur_decl_type = old_decl_type;
     return func;
 }
 
@@ -1580,13 +1604,13 @@ static struct node *parse_initializer()
     return parse_assign_expr();
 }
 
-static struct symbol *parse_declaration(enum declaration_type decl_type)
+static struct symbol *parse_declaration()
 {
     struct symbol *base_type;
     int is_typedef = 0;
     int flags = 0;
 
-    if (decl_type == DT_GLOBAL) {
+    if (cur_decl_type == DT_GLOBAL) {
         is_typedef = accept(TOK_TYPEDEF);
         if (accept(TOK_EXTERN)) {
             flags |= SF_EXTERN;
@@ -1608,7 +1632,13 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
             symbol = declarator;
             symbol->flags |= flags;
         } else {
-            symbol = alloc_symbol(is_typedef ? ST_TYPE_ALIAS : ST_VARIABLE);
+            enum symbol_type type = ST_VARIABLE;
+            if (is_typedef) {
+                type = ST_TYPE_ALIAS;
+            } else if (cur_decl_type == DT_GLOBAL) {
+                type = ST_GLOBAL_VARIABLE;
+            }
+            symbol = alloc_symbol(type);
             symbol->base_type = declarator;
             symbol->size = symbol->base_type->size;
         }
@@ -1621,9 +1651,13 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
 
         if (symbol->type == ST_FUNCTION) {
             if (token.type == TOK_LBRACE) {
+                function_locals_size = 0;
+                cur_decl_type = DT_LOCAL;
                 push_symtable_ex(symbol->symtable);
                 PARSE(symbol->expr, stmt);
                 pop_symtable();
+                cur_decl_type = DT_GLOBAL;
+                symbol->locals_size = function_locals_size;
             }
         } else {
             if (accept(TOK_ASSIGN)) {
@@ -1634,6 +1668,25 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
                         return NULL;
                     }
                 }
+
+                if (initializers_list != NULL) {
+                    ALLOC_NODE_EX(NT_VARIABLE, var_node, var_node)
+                    var_node->symbol = symbol;
+                    var_node->base.type_sym = symbol->base_type;
+
+                    ALLOC_NODE_EX(NT_ASSIGN, assign_node, binary_node)
+                    assign_node->ops[0] = (struct node*)var_node;
+                    assign_node->ops[1] = symbol->expr;
+                    assign_node->base.type_sym = assign_node->ops[0]->type_sym;
+
+                    initializers_list->size++;
+                    list_node_ensure_capacity(initializers_list, initializers_list->size);
+                    initializers_list->items[initializers_list->size - 1] = (struct node*)assign_node;
+                }
+            }
+            if (cur_decl_type == DT_LOCAL) {
+                symbol->offset = -function_locals_size;
+                function_locals_size += symbol->size;
             }
         }
         put_symbol(symbol->name, symbol, SC_NAME);
@@ -1659,8 +1712,9 @@ extern void parser_init()
 {
     parser_pull = pull_create();
     current_symtable = 0;
-    parser_flags = PF_RESOLVE_NAMES;
+    parser_flags = PF_RESOLVE_NAMES | PF_ADD_INITIALIZERS;
     symtables[0] = symtable_create(SYMTABLE_DEFAULT_SIZE);
+    initializers_list = NULL;
 
     init_type("void", &sym_void, 0);
     init_type("int", &sym_int, 4);
@@ -1722,7 +1776,8 @@ extern symtable_t parser_parse()
     current_symtable = 0;
     push_symtable();
     while (!accept(TOK_EOS)) {
-        if (parse_declaration(DT_GLOBAL) == NULL) {
+        cur_decl_type = DT_GLOBAL;
+        if (parse_declaration() == NULL) {
             printf("FAIL on line %d\n", token.line);
             pull_clear(parser_pull);
             return NULL;

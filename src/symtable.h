@@ -8,6 +8,7 @@
 
 enum symbol_type {
     ST_VARIABLE,
+    ST_GLOBAL_VARIABLE,
     ST_FUNCTION,
     ST_SCALAR_TYPE,
     ST_TYPE_ALIAS,
@@ -36,6 +37,9 @@ struct symbol {
     symtable_t symtable;
     int flags;
     int size;
+    int offset;
+    int locals_size;
+    const char *label;
 };
 
 typedef const char *symtable_key_t;

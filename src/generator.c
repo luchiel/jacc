@@ -64,6 +64,15 @@ static int print_operand(struct asm_operand *op)
     case AOT_LABEL:
         printf("_%s", op->data.label);
         break;
+    case AOT_SIZE:
+        switch (op->data.size.size) {
+        case AOS_BYTE: printf("byte "); break;
+        case AOS_WORD: printf("word "); break;
+        case AOS_DWORD: printf("dword "); break;
+        case AOS_QWORD: printf("qword "); break;
+        }
+        print_operand(op->data.size.subop);
+        break;
     }
     return 1;
 }
@@ -186,6 +195,20 @@ static struct asm_operand *deref(struct asm_operand *base)
     return memory(base, NULL, NULL, 1);
 }
 
+static struct asm_operand *size_spec(enum asm_operand_size size, struct asm_operand *subop)
+{
+    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
+    operand->type = AOT_SIZE;
+    operand->data.size.size = size;
+    operand->data.size.subop = subop;
+    return operand;
+}
+
+static struct asm_operand *dword(struct asm_operand *subop)
+{
+    return size_spec(AOS_DWORD, subop);
+}
+
 static char *gen_label()
 {
     char *buf = jacc_malloc(8);
@@ -195,6 +218,36 @@ static char *gen_label()
 }
 
 static void generate_expr(struct node *expr);
+
+static struct asm_operand *lvalue(struct node *expr)
+{
+    switch (expr->type) {
+    case NT_VARIABLE:
+    {
+        struct var_node *var = (struct var_node*)expr;
+        switch (var->symbol->type) {
+        case ST_PARAMETER:
+            return dword(memory(ebp, constant(var->symbol->offset + 8), NULL, 1));
+        case ST_VARIABLE:
+            return dword(memory(ebp, constant(var->symbol->offset - 4), NULL, 1));
+        case ST_GLOBAL_VARIABLE:
+            if (var->symbol->label == NULL) {
+                var->symbol->label = gen_label();
+                char *buf = jacc_malloc(30);
+                sprintf(buf, "_%s db %d dup(0)", var->symbol->label, var->symbol->size);
+                emit_data(buf);
+            }
+            return dword(deref(label(var->symbol->label)));
+        default:
+            emit_text("; unhandled var symbol %d", var->symbol->type);
+        }
+        break;
+    }
+    default:
+        emit_text("; '%s' is not lvalue", parser_node_info(expr)->repr);
+    }
+    return deref(constant(0));
+}
 
 static void generate_int_cmp(enum asm_command_type cmd)
 {
@@ -298,7 +351,11 @@ static void generate_expr(struct node *expr)
             generate_expr(list->items[i]);
             size += list->items[i]->type_sym->size;
         }
-        emit(ASM_CALL, deref(label(expr->ops[0]->type_sym->name))); // @todo function pointers
+        struct asm_operand *target = label(expr->ops[0]->type_sym->name);
+        if ((expr->ops[0]->type_sym->flags & SF_EXTERN) == SF_EXTERN) {
+            target = deref(target);
+        }
+        emit(ASM_CALL, target); // @todo function pointers
         emit(ASM_ADD, esp, constant(size));
         return;
     }
@@ -335,6 +392,16 @@ static void generate_expr(struct node *expr)
         emit_label(l2);
         return;
     }
+    case NT_ASSIGN:
+    {
+        generate_expr(expr->ops[1]);
+        emit(ASM_POP, eax);
+        emit(ASM_MOV, lvalue(expr->ops[0]), eax);
+        return;
+    }
+    case NT_VARIABLE:
+        emit(ASM_PUSH, lvalue(expr));
+        return;
     case NT_INT:
         emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
         return;
@@ -358,20 +425,27 @@ static void generate_function(struct symbol *func)
     emit_text("; start %s", func->name);
 
     emit_text("_%s:", func->name);
-    if (!is_main) {
-        emit(ASM_PUSH, ebp);
-        emit(ASM_MOV, ebp, esp);
+
+    emit(ASM_PUSH, ebp);
+    emit(ASM_MOV, ebp, esp);
+    if (func->locals_size != 0) {
+        emit(ASM_SUB, esp, constant(func->locals_size));
     }
 
     generate_expr(func->expr);
 
-    if (!is_main) {
-        emit(ASM_MOV, esp, ebp);
-        emit(ASM_POP, ebp);
-        emit(ASM_RET);
-    } else {
+    if (func->locals_size != 0) {
+        emit(ASM_ADD, esp, constant(func->locals_size));
+    }
+
+    emit(ASM_MOV, esp, ebp);
+    emit(ASM_POP, ebp);
+
+    if (is_main) {
         emit(ASM_PUSH, constant(0));
         emit(ASM_CALL, deref(label("ExitProcess")));
+    } else {
+        emit(ASM_RET);
     }
 
     emit_text("; end %s\n", func->name);
@@ -423,6 +497,7 @@ extern void generator_print_code(code_t code)
     }
 
     printf("section '.data' data readable writable\n\n");
+    printf("placeholder db 0\n");
     for (i = 0; i < code->opcode_count; i++) {
         if (code->opcodes[i]->type == ACT_DATA) {
             print_opcode(code->opcodes[i]);
@@ -444,10 +519,15 @@ static void free_memory_subop(struct asm_operand *operand)
 
 extern void generator_free_operand_data(struct asm_operand *operand)
 {
-    if (operand->type == AOT_MEMORY) {
+    switch (operand->type) {
+    case AOT_MEMORY:
         free_memory_subop(operand->data.memory.base);
         free_memory_subop(operand->data.memory.index);
         free_memory_subop(operand->data.memory.offset);
+        break;
+    case AOT_SIZE:
+        generator_free_operand_data(operand->data.size.subop);
+        break;
     }
 }
 

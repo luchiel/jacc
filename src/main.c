@@ -163,6 +163,7 @@ void print_symbol(struct symbol *symbol, int level, int depth)
         }
         break;
     case ST_VARIABLE:
+    case ST_GLOBAL_VARIABLE:
         printf("variable of type <");
         print_symbol(symbol->base_type, level, depth + 1);
         printf(">");
@@ -294,7 +295,7 @@ void print_node(struct node *node, int level, int root)
         printf(" -> <");
         int old_indent = show_indents[level + 1];
         show_indents[level + 1] = 0;
-        if (node->type_sym->type == ST_VARIABLE || node->type_sym->type == ST_PARAMETER) {
+        if (node->type_sym->type == ST_VARIABLE || node->type_sym->type == ST_GLOBAL_VARIABLE || node->type_sym->type == ST_PARAMETER) {
             print_symbol(node->type_sym->base_type, level + 1, 1);
         } else {
             print_symbol(node->type_sym, level + 1, 1);
@@ -342,6 +343,7 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
         node = parser_parse_statement();
         print_node(node, 0, 0);
     } else if (strcmp(cmd, "parse") == 0) {
+        parser_flags_set(PF_RESOLVE_NAMES);
         symtable = parser_parse();
         print_symtable(symtable, 0);
     } else if (strcmp(cmd, "compile") == 0) {

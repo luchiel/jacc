@@ -25,6 +25,14 @@ enum asm_operand_type {
     AOT_MEMORY,
     AOT_CONSTANT,
     AOT_LABEL,
+    AOT_SIZE,
+};
+
+enum asm_operand_size {
+    AOS_BYTE,
+    AOS_WORD,
+    AOS_DWORD,
+    AOS_QWORD,
 };
 
 struct asm_operand {
@@ -34,6 +42,10 @@ struct asm_operand {
             struct asm_operand *base, *offset, *index;
             int scale;
         } memory;
+        struct {
+            enum asm_operand_size size;
+            struct asm_operand *subop;
+        } size;
         const char *register_name;
         const char *label;
         int value;
