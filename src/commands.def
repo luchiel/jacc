@@ -4,10 +4,12 @@ COMMAND(IMUL, imul, 1)
 COMMAND(IDIV, idiv, 1)
 COMMAND(SAL, sal, 2)
 COMMAND(SAR, sar, 2)
+COMMAND(NEG, neg, 1)
 
 COMMAND(XOR, xor, 2)
 COMMAND(OR, or, 2)
 COMMAND(AND, and, 2)
+COMMAND(NOT, not, 1)
 
 COMMAND(CDQ, cdq, 0)
 

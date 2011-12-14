@@ -216,6 +216,26 @@ static void generate_int_logical_op(enum asm_command_type cmd)
     emit(ASM_MOV, eax, ecx);
 }
 
+static void generate_unary_int_op(struct node *expr)
+{
+    generate_expr(expr->ops[0]);
+    emit(ASM_POP, eax);
+    switch (expr->type) {
+    case NT_LOGICAL_NEGATION:
+        emit(ASM_XOR, ecx, ecx);
+        emit(ASM_TEST, eax, eax);
+        emit(ASM_SETZ, cl);
+        emit(ASM_MOV, eax, eax);
+        break;
+    case NT_COMPLEMENT: emit(ASM_NOT, eax); break;
+    case NT_NEGATION: emit(ASM_NEG, eax); break;
+    case NT_IDENTITY: break;
+    default:
+        emit_text("; unknown unary node %s", parser_node_info(expr)->repr);
+    }
+    emit(ASM_PUSH, eax);
+}
+
 static void generate_binary_int_op(struct node *expr)
 {
     generate_expr(expr->ops[0]);
@@ -307,6 +327,7 @@ static void generate_expr(struct node *expr)
     }
 
     switch (parser_node_info(expr)->cat) {
+    case NC_UNARY: generate_unary_int_op(expr); return;
     case NC_BINARY: generate_binary_int_op(expr); return;
     }
     emit_text("; unknown node %s", parser_node_info(expr)->repr);
