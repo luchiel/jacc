@@ -5,11 +5,37 @@ COMMAND(IDIV, idiv, 1)
 COMMAND(SAL, sal, 2)
 COMMAND(SAR, sar, 2)
 
+COMMAND(XOR, xor, 2)
+COMMAND(OR, or, 2)
+COMMAND(AND, and, 2)
+
 COMMAND(CDQ, cdq, 0)
 
 COMMAND(MOV, mov, 2)
 COMMAND(PUSH, push, 1)
 COMMAND(POP, pop, 1)
+
+COMMAND(CMP, cmp, 2)
+COMMAND(TEST, test, 2)
+
+COMMAND(JMP, jmp, 1)
+COMMAND(JZ, jz, 1)
+COMMAND(JNZ, jnz, 1)
+COMMAND(JE, je, 1)
+COMMAND(JNE, jne, 1)
+COMMAND(JL, jl, 1)
+COMMAND(JLE, jle, 1)
+COMMAND(JG, jg, 1)
+COMMAND(JGE, jge, 1)
+
+COMMAND(SETZ, setz, 1)
+COMMAND(SETNZ, setnz, 1)
+COMMAND(SETE, sete, 1)
+COMMAND(SETNE, setne, 1)
+COMMAND(SETL, setl, 1)
+COMMAND(SETLE, setle, 1)
+COMMAND(SETG, setg, 1)
+COMMAND(SETGE, setge, 1)
 
 COMMAND(CALL, call, 1)
 COMMAND(RET, ret, 0)

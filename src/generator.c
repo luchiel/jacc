@@ -141,6 +141,11 @@ static void emit_text(char *format, ...)
     add_opcode(opcode);
 }
 
+static void emit_label(char *name)
+{
+    emit_text("_%s:", name);
+}
+
 static void emit_data(char *data)
 {
     struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
@@ -181,9 +186,37 @@ static struct asm_operand *deref(struct asm_operand *base)
     return memory(base, NULL, NULL, 1);
 }
 
+static char *gen_label()
+{
+    char *buf = jacc_malloc(8);
+    sprintf(buf, "@%d", label_counter);
+    label_counter++;
+    return buf;
+}
+
 static void generate_expr(struct node *expr);
 
-static void generate_int_binop(struct node *expr)
+static void generate_int_cmp(enum asm_command_type cmd)
+{
+    emit(ASM_XOR, ecx, ecx);
+    emit(ASM_CMP, eax, ebx);
+    emit(cmd, cl);
+    emit(ASM_MOV, eax, ecx);
+}
+
+static void generate_int_logical_op(enum asm_command_type cmd)
+{
+    char *lbl = gen_label();
+    emit(ASM_XOR, ecx, ecx);
+    emit(ASM_TEST, eax, eax);
+    emit(cmd, label(lbl));
+    emit(ASM_TEST, ebx, ebx);
+    emit_label(lbl);
+    emit(ASM_SETNZ, cl);
+    emit(ASM_MOV, eax, ecx);
+}
+
+static void generate_binary_int_op(struct node *expr)
 {
     generate_expr(expr->ops[0]);
     generate_expr(expr->ops[1]);
@@ -208,16 +241,21 @@ static void generate_int_binop(struct node *expr)
         emit(ASM_IDIV, ebx);
         if (expr->type == NT_MOD) emit(ASM_MOV, eax, edx);
         break;
+    case NT_EQ: generate_int_cmp(ASM_SETE); break;
+    case NT_NE: generate_int_cmp(ASM_SETNE); break;
+    case NT_LE: generate_int_cmp(ASM_SETLE); break;
+    case NT_LT: generate_int_cmp(ASM_SETL); break;
+    case NT_GE: generate_int_cmp(ASM_SETGE); break;
+    case NT_GT: generate_int_cmp(ASM_SETG); break;
+    case NT_BIT_XOR: emit(ASM_XOR, eax, ebx); break;
+    case NT_BIT_OR: emit(ASM_OR, eax, ebx); break;
+    case NT_BIT_AND: emit(ASM_AND, eax, ebx); break;
+    case NT_AND: generate_int_logical_op(ASM_JZ); break;
+    case NT_OR: generate_int_logical_op(ASM_JNZ); break;
+    default:
+        emit_text("; unknown binary node %s", parser_node_info(expr)->repr);
     }
     emit(ASM_PUSH, eax);
-}
-
-static char *gen_label()
-{
-    char *buf = jacc_malloc(8);
-    sprintf(buf, "@%d", label_counter);
-    label_counter++;
-    return buf;
 }
 
 static void generate_expr(struct node *expr)
@@ -269,12 +307,9 @@ static void generate_expr(struct node *expr)
     }
 
     switch (parser_node_info(expr)->cat) {
-    case NC_BINARY:
-        generate_int_binop(expr);
-        break;
-    default:
-        emit_text("; unknown node %s", parser_node_info(expr)->repr);
+    case NC_BINARY: generate_binary_int_op(expr); return;
     }
+    emit_text("; unknown node %s", parser_node_info(expr)->repr);
 }
 
 static void generate_function(struct symbol *func)
