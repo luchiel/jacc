@@ -321,6 +321,7 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
 
     lexer_init(file);
     parser_init();
+    generator_init();
 
     struct node* node = NULL;
     symtable_t symtable = NULL;
@@ -340,12 +341,14 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
     } else if (strcmp(cmd, "compile") == 0) {
         symtable = parser_parse();
         code = generator_process(symtable);
+        generator_print_code(code);
     }
 
     parser_free_node(node);
     symtable_destroy(symtable, 1);
     generator_free_code(code);
 
+    generator_destroy();
     parser_destroy();
     lexer_destroy();
 
