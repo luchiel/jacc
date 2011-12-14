@@ -1318,11 +1318,15 @@ static struct node *parse_stmt()
 static struct symbol *parse_array_declarator(struct symbol *base_type)
 {
     struct symbol *array = alloc_symbol(ST_ARRAY);
+    int count = 0;
 
     CONSUME(TOK_LBRACKET)
     if (!accept(TOK_RBRACKET)) {
         PARSE(array->expr, const_expr)
         CONSUME(TOK_RBRACKET)
+        if (array->expr->type == NT_INT) {
+            count = ((struct int_node*)array->expr)->value;
+        }
     }
 
     if (token.type == TOK_LBRACKET) {
@@ -1330,6 +1334,7 @@ static struct symbol *parse_array_declarator(struct symbol *base_type)
     } else {
         array->base_type = base_type;
     }
+    array->size = array->base_type->size * count;
     return array;
 }
 
@@ -1379,6 +1384,7 @@ static struct symbol *parse_declarator_base(const char **name)
     while (token.type == TOK_STAR) {
         struct symbol *pointer = alloc_symbol(ST_POINTER);
         pointer->base_type = outer_symbol;
+        pointer->size = sym_int.size;
         outer_symbol = pointer;
         next_token();
     }
@@ -1445,6 +1451,19 @@ static struct symbol *parse_struct_or_union_specifier()
             PARSE(result, declaration, DT_STRUCT)
         } while (!accept(TOK_RBRACE));
         pop_symtable();
+
+        symtable_iter_t iter = symtable_first(symbol->symtable);
+        for (; iter != NULL; iter = symtable_iter_next(iter)) {
+            struct symbol *result = symtable_iter_value(iter);
+            if (!is_var_symbol(result)) {
+                continue;
+            }
+            if (symbol->type == ST_STRUCT) {
+                symbol->size += result->size;
+            } else if (result->size > symbol->size) {
+                symbol->size = result->size;
+            }
+        }
     }
     return symbol;
 }
@@ -1591,6 +1610,7 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
         } else {
             symbol = alloc_symbol(is_typedef ? ST_TYPE_ALIAS : ST_VARIABLE);
             symbol->base_type = declarator;
+            symbol->size = symbol->base_type->size;
         }
         symbol->name = symbol_name;
 
@@ -1627,10 +1647,11 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
     return &sym_null;
 }
 
-static void init_type(const char *name, struct symbol *symbol)
+static void init_type(const char *name, struct symbol *symbol, int size)
 {
     symbol->name = name;
     symbol->type = ST_SCALAR_TYPE;
+    symbol->size = size;
     put_symbol(name, (struct symbol*)symbol, SC_NAME);
 }
 
@@ -1641,14 +1662,15 @@ extern void parser_init()
     parser_flags = PF_RESOLVE_NAMES;
     symtables[0] = symtable_create(SYMTABLE_DEFAULT_SIZE);
 
-    init_type("void", &sym_void);
-    init_type("int", &sym_int);
-    init_type("double", &sym_float);
-    init_type("float", &sym_float);
-    init_type("char", &sym_char);
+    init_type("void", &sym_void, 0);
+    init_type("int", &sym_int, 4);
+    init_type("double", &sym_float, 4);
+    init_type("float", &sym_float, 4);
+    init_type("char", &sym_char, 1);
 
     sym_char_ptr.type = ST_POINTER;
     sym_char_ptr.base_type = &sym_char;
+    sym_char_ptr.size = sym_int.size;
 
     token.type = TOK_ERROR;
     token_next.type = TOK_ERROR;

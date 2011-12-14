@@ -35,6 +35,7 @@ struct symbol {
     struct node *expr;
     symtable_t symtable;
     int flags;
+    int size;
 };
 
 typedef const char *symtable_key_t;
