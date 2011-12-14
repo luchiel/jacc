@@ -58,6 +58,11 @@ extern void symtable_destroy(symtable_t symtable, int free_nodes)
 {
     int i;
     struct symtable_node *node, *prev;
+
+    if (symtable == NULL) {
+        return;
+    }
+
     for (i = 0; i < symtable->capacity; i++) {
         node = symtable->buckets[i];
         while (node != NULL) {
