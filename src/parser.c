@@ -165,7 +165,6 @@ static int is_type_symbol(struct symbol *symbol)
     }
 
     switch (symbol->type) {
-    case ST_FUNCTION:
     case ST_SCALAR_TYPE:
     case ST_TYPE_ALIAS:
     case ST_STRUCT:
@@ -265,6 +264,26 @@ static struct symbol *resolve_alias(struct symbol *symbol)
         symbol = symbol->base_type;
     }
     return symbol;
+}
+
+static struct symbol *get_callable(struct symbol *symbol)
+{
+    if (symbol == NULL) {
+        return NULL;
+    }
+
+    switch (symbol->type) {
+    case ST_FUNCTION:
+        return symbol;
+    case ST_VARIABLE:
+        if (symbol->base_type->type == ST_POINTER
+                && symbol->base_type->base_type->type == ST_FUNCTION)
+        {
+            return symbol->base_type->base_type;
+        }
+        break;
+    }
+    return NULL;
 }
 
 static enum symbol_type get_generic_type(struct symbol *symbol)
@@ -481,6 +500,7 @@ static int set_inc_expr_type(struct node *node)
 }
 
 static struct node *parse_expr(int level);
+static struct node *parse_assign_expr();
 static struct node *parse_cast_expr();
 static int is_parse_type_specifier();
 static int parse_type_qualifier();
@@ -547,7 +567,7 @@ static struct node *parse_primary_expr()
             EXPECT(TOK_IDENT)
             ALLOC_NODE_EX(NT_VARIABLE, var_node, var_node)
             var_node->symbol = get_symbol(token.value.str_val, SC_NAME);
-            if (!is_var_symbol(var_node->symbol)) {
+            if (!is_var_symbol(var_node->symbol) && var_node->symbol->type != ST_FUNCTION) {
                 parser_error("expected variable type");
                 return NULL;
             }
@@ -636,9 +656,59 @@ static struct node *parse_postfix_expr()
             next_token();
             break;
         }
+        case TOK_LPAREN:
+        {
+            ALLOC_NODE_EX(NT_CALL, cnode, binary_node)
+            cnode->ops[0] = node;
+
+            struct symbol *func = get_callable(node->type_sym);
+            if (calc_types() && func == NULL) {
+                parser_error("expected function or function pointer");
+                return NULL;
+            }
+
+            CONSUME(TOK_LPAREN)
+            struct list_node* list_node = alloc_list_node();
+            list_node->base.symtable = push_symtable();
+            if (token.type != TOK_RPAREN) {
+                do {
+                    list_node->size++;
+                    list_node_ensure_capacity(list_node, list_node->size);
+                    PARSE(list_node->items[list_node->size - 1], assign_expr)
+                } while (accept(TOK_COMMA));
+            }
+            pop_symtable();
+            cnode->ops[1] = (struct node*)list_node;
+            CONSUME(TOK_RPAREN)
+
+            if (calc_types()) {
+                cnode->base.type_sym = func->base_type;
+
+                int param_count = symtable_size(func->symtable);
+                if (list_node->size < param_count) {
+                    parser_error("too few arguments to function");
+                    return NULL;
+                } else if (list_node->size > param_count && (func->flags & SF_VARIADIC) != SF_VARIADIC) {
+                    parser_error("too many arguments to function");
+                    return NULL;
+                }
+
+                int i = 0;
+                symtable_iter_t iter = symtable_first(func->symtable);
+                for (; iter != NULL; iter = symtable_iter_next(iter), i++) {
+                    struct symbol *type = symtable_iter_value(iter)->base_type;
+                    if (!convert_ops_to(&list_node->items[i], 1, type)) {
+                        parser_error("incompatible argument type");
+                        return NULL;
+                    }
+                }
+            }
+
+            node = (struct node*)cnode;
+            break;
+        }
         case TOK_DOT:
         case TOK_REF_OP:
-        case TOK_LPAREN:
         case TOK_LBRACKET:
         {
             ALLOC_NODE_EX(get_postfix_node_type(), unode, binary_node)
@@ -649,13 +719,6 @@ static struct node *parse_postfix_expr()
             case NT_SUBSCRIPT:
                 PARSE(unode->ops[1], expr, 0)
                 break;
-            case NT_CALL: /* TODO should be parse_arg_list */
-                if (token.type != TOK_RPAREN) {
-                    PARSE(unode->ops[1], expr, 0)
-                } else {
-                    PARSE(unode->ops[1], nop)
-                }
-                break;
             case NT_MEMBER:
             case NT_MEMBER_BY_PTR:
                 PARSE(unode->ops[1], ident)
@@ -663,9 +726,7 @@ static struct node *parse_postfix_expr()
                 break;
             }
 
-            if (unode->base.type == NT_CALL) {
-                CONSUME(TOK_RPAREN)
-            } else if (unode->base.type == NT_SUBSCRIPT) {
+            if (unode->base.type == NT_SUBSCRIPT) {
                 CONSUME(TOK_RBRACKET)
             }
 
@@ -704,6 +765,10 @@ static struct node *parse_postfix_expr()
                     deref_node->base.type_sym = deref_node->ops[0]->type_sym->base_type;
 
                     node = (struct node*)deref_node;
+                    break;
+                }
+                case NT_CALL:
+                {
                     break;
                 }
                 case NT_MEMBER_BY_PTR:

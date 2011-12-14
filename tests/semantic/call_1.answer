@@ -1,0 +1,76 @@
+t1 is variadic function taking (
+   <int> as a
+   <int> as b
+) returning <int> defined as {
+   (list)
+    |
+    +-(return)
+       |
+       +-(0)
+}
+test_call is function returning nothing defined as {
+   (list)
+   [
+      b is variable of type <pointer to function returning nothing>
+   ]
+    +-(call) -> <int>
+       |
+       +-(var t1) -> <variadic function taking (
+       |       <int> as a
+       |       <int> as b
+       |    ) returning <int>>
+       |
+       +-(list)
+          |
+          +-(1)
+          |
+          +-(2)
+
+    +-(call) -> <int>
+       |
+       +-(var t1) -> <variadic function taking (
+       |     | <int> as a
+       |     | <int> as b
+       |    ) returning <int>>
+       |
+       +-(list)
+          |
+          +-(1)
+          |
+          +-(cast to <int>)
+          |  |
+          |  +-(2.000000)
+          |
+          +-(3)
+          |
+          +-(5)
+          |
+          +-("asd")
+
+    +-(call) -> <void>
+       |
+       +-(var b) -> <pointer to function returning nothing>
+       |
+       +-(list)
+
+    +-(+) -> <int>
+       |
+       +-(1)
+       |
+       +-(call) -> <int>
+          |
+          +-(var t1) -> <variadic function taking (
+          |     | <int> as a
+          |     | <int> as b
+          |    ) returning <int>>
+          |
+          +-(list)
+             |
+             +-(cast to <int>)
+             |  |
+             |  +-(cast to <char>)
+             |     |
+             |     +-(6)
+             |
+             +-(1)
+}

@@ -146,7 +146,7 @@ void print_symbol(struct symbol *symbol, int level, int depth)
             print_symbol(symbol->base_type, level, 0);
             printf(">");
         }
-        if (symbol->expr != NULL) {
+        if (symbol->expr != NULL && level == 0) {
             printf(" defined as {\n");
             show_indents[level + 1] = 0;
             print_node(symbol->expr, level + 1, 1);
