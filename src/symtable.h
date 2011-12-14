@@ -3,6 +3,8 @@
 
 #define SF_VARIADIC 1
 #define SF_INCOMPLETE 2
+#define SF_STATIC 4
+#define SF_EXTERN 8
 
 enum symbol_type {
     ST_VARIABLE,

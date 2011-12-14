@@ -124,6 +124,12 @@ void print_symbol(struct symbol *symbol, int level, int depth)
         print_symbol(symbol->base_type, level, depth + 1);
         break;
     case ST_FUNCTION:
+        if ((symbol->flags & SF_STATIC) == SF_STATIC) {
+            printf("static ");
+        } else if ((symbol->flags & SF_EXTERN) == SF_EXTERN) {
+            printf("extern ");
+        }
+
         if ((symbol->flags & SF_VARIADIC) == SF_VARIADIC) {
             printf("variadic ");
         }

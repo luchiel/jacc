@@ -1556,12 +1556,6 @@ static struct symbol *parse_specifier_qualifier_list()
     return parse_type_specifier();
 }
 
-static struct symbol *parse_declaration_specifiers()
-{
-    accept(TOK_EXTERN) || accept(TOK_STATIC);
-    return parse_specifier_qualifier_list();
-}
-
 static struct node *parse_initializer()
 {
     return parse_assign_expr();
@@ -1571,12 +1565,17 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
 {
     struct symbol *base_type;
     int is_typedef = 0;
+    int flags = 0;
+
     if (decl_type == DT_GLOBAL) {
         is_typedef = accept(TOK_TYPEDEF);
-        PARSE(base_type, declaration_specifiers)
-    } else {
-        PARSE(base_type, specifier_qualifier_list)
+        if (accept(TOK_EXTERN)) {
+            flags |= SF_EXTERN;
+        } else if (accept(TOK_STATIC)) {
+            flags |= SF_STATIC;
+        }
     }
+    PARSE(base_type, specifier_qualifier_list)
 
     if (accept(TOK_SEMICOLON)) {
         return &sym_null;
@@ -1588,6 +1587,7 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
         PARSE(declarator, declarator, base_type, &symbol_name)
         if (declarator->type == ST_FUNCTION) {
             symbol = declarator;
+            symbol->flags |= flags;
         } else {
             symbol = alloc_symbol(is_typedef ? ST_TYPE_ALIAS : ST_VARIABLE);
             symbol->base_type = declarator;
