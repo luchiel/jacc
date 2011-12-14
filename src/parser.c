@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include "memory.h"
 #include "lexer.h"
 #include "parser.h"
@@ -10,9 +11,7 @@
 
 #define ALLOC_NODE_EX(enum_type, var_name, struct_name) \
     struct struct_name *var_name = jacc_malloc(sizeof(*var_name)); \
-    pull_add(parser_pull, var_name); \
-    ((struct node*)(var_name))->symtable = NULL; \
-    ((struct node*)(var_name))->type = (enum_type);
+    init_node((struct node*)(var_name), sizeof(*var_name), (enum_type));
 
 #define EXPECT(token_type) { if (token.type != token_type) { unexpected_token(lexer_token_type_name(token_type)); return NULL; } }
 #define CONSUME(token_type) { EXPECT(token_type); next_token(); }
@@ -45,6 +44,13 @@ enum declaration_type {
     DT_LOCAL,
     DT_STRUCT,
 };
+
+static void init_node(struct node *node, int size, enum node_type type)
+{
+    pull_add(parser_pull, node);
+    memset(node, 0, size);
+    node->type = type;
+}
 
 static int next_token()
 {
@@ -263,6 +269,14 @@ static struct symbol *resolve_alias(struct symbol *symbol)
     while (symbol->type == ST_TYPE_ALIAS || is_var_symbol(symbol)) {
         symbol = symbol->base_type;
     }
+    return symbol;
+}
+
+static struct symbol *alloc_symbol(enum symbol_type type)
+{
+    struct symbol *symbol = jacc_malloc(sizeof(*symbol));
+    memset(symbol, 0, sizeof(*symbol));
+    symbol->type = type;
     return symbol;
 }
 
@@ -874,10 +888,8 @@ static struct node *parse_unary_expr()
                 if (!check_is_lvalue(node->ops[0])) {
                     return NULL;
                 }
-                node->base.type_sym = jacc_malloc(sizeof(struct symbol));
-                node->base.type_sym->type = ST_POINTER;
+                node->base.type_sym = alloc_symbol(ST_POINTER);
                 node->base.type_sym->base_type = is_var_symbol(type) ? type->base_type : type;
-                node->base.type_sym->flags = 0;
                 break;
             default:
                 node->base.type_sym = node->ops[0]->type_sym;
@@ -1305,10 +1317,7 @@ static struct node *parse_stmt()
 
 static struct symbol *parse_array_declarator(struct symbol *base_type)
 {
-    struct symbol *array = jacc_malloc(sizeof(*array));
-    array->type = ST_ARRAY;
-    array->expr = NULL;
-    array->flags = 0;
+    struct symbol *array = alloc_symbol(ST_ARRAY);
 
     CONSUME(TOK_LBRACKET)
     if (!accept(TOK_RBRACKET)) {
@@ -1326,10 +1335,8 @@ static struct symbol *parse_array_declarator(struct symbol *base_type)
 
 static struct symbol *parse_function_declarator(struct symbol *base_type)
 {
-    struct symbol *func = jacc_malloc(sizeof(*func));
-    func->type = ST_FUNCTION;
+    struct symbol *func = alloc_symbol(ST_FUNCTION);
     func->base_type = base_type;
-    func->flags = 0;
 
     push_symtable();
     func->symtable = get_current_symtable();
@@ -1342,10 +1349,7 @@ static struct symbol *parse_function_declarator(struct symbol *base_type)
                 break;
             }
 
-            struct symbol *parameter = jacc_malloc(sizeof(*parameter));
-
-            parameter->name = NULL;
-            parameter->type = ST_PARAMETER;
+            struct symbol *parameter = alloc_symbol(ST_PARAMETER);
 
             PARSE(parameter->base_type, type_specifier)
             PARSE(parameter->base_type, declarator, parameter->base_type, &parameter->name)
@@ -1373,10 +1377,8 @@ static struct symbol *parse_declarator_base(const char **name)
 {
     struct symbol *inner_symbol = &sym_null, *outer_symbol = &sym_null;
     while (token.type == TOK_STAR) {
-        struct symbol *pointer = jacc_malloc(sizeof(*pointer));
-        pointer->type = ST_POINTER;
+        struct symbol *pointer = alloc_symbol(ST_POINTER);
         pointer->base_type = outer_symbol;
-        pointer->flags = 0;
         outer_symbol = pointer;
         next_token();
     }
@@ -1409,12 +1411,8 @@ static struct symbol *parse_declarator_base(const char **name)
 
 static struct symbol *parse_structured_specifier_start(enum symbol_type symbol_type, const char *name_prefix)
 {
-    struct symbol *symbol = jacc_malloc(sizeof(*symbol));
-    symbol->type = symbol_type;
+    struct symbol *symbol = alloc_symbol(symbol_type);
     symbol->flags = SF_INCOMPLETE;
-    symbol->base_type = NULL;
-    symbol->name = NULL;
-    symbol->symtable = NULL;
 
     next_token();
     if (token.type == TOK_IDENT) {
@@ -1462,8 +1460,7 @@ static struct symbol *parse_enum_specifier()
             ALLOC_NODE_EX(NT_INT, value_node, int_node)
             value_node->value = counter;
 
-            struct symbol *enum_const = jacc_malloc(sizeof(*enum_const));
-            enum_const->type = ST_ENUM_CONST;
+            struct symbol *enum_const = alloc_symbol(ST_ENUM_CONST);
             enum_const->base_type = symbol;
             enum_const->expr = (struct node*)value_node;
             enum_const->name = token.value.str_val;
@@ -1592,9 +1589,7 @@ static struct symbol *parse_declaration(enum declaration_type decl_type)
         if (declarator->type == ST_FUNCTION) {
             symbol = declarator;
         } else {
-            symbol = jacc_malloc(sizeof(*symbol));
-            symbol->type = is_typedef ? ST_TYPE_ALIAS : ST_VARIABLE;
-            symbol->expr = NULL;
+            symbol = alloc_symbol(is_typedef ? ST_TYPE_ALIAS : ST_VARIABLE);
             symbol->base_type = declarator;
         }
         symbol->name = symbol_name;
