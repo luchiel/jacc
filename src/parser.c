@@ -26,7 +26,7 @@ symtable_t symtables[SYMTABLE_MAX_DEPTH];
 int current_symtable;
 int name_uid = 0;
 int parser_flags = 0;
-struct symbol sym_null, sym_void, sym_int, sym_float, sym_double, sym_char, sym_char_ptr;
+struct symbol sym_null, sym_void, sym_int, sym_float, sym_char, sym_char_ptr;
 
 pull_t parser_pull;
 
@@ -1525,7 +1525,7 @@ static struct symbol *parse_type_specifier()
         return (struct symbol*)&sym_float;
     case TOK_DOUBLE:
         next_token();
-        return (struct symbol*)&sym_double;
+        return (struct symbol*)&sym_float;
     case TOK_IDENT:
     {
         struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
@@ -1643,8 +1643,8 @@ extern void parser_init()
 
     init_type("void", &sym_void);
     init_type("int", &sym_int);
+    init_type("double", &sym_float);
     init_type("float", &sym_float);
-    init_type("double", &sym_double);
     init_type("char", &sym_char);
 
     sym_char_ptr.type = ST_POINTER;
