@@ -1,8 +1,11 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
+
 #include "generator.h"
 #include "memory.h"
+#include "symtable.h"
 
 struct asm_command commands[] = {
 #define COMMAND(name, repr, op_count) { #repr, op_count },
@@ -56,6 +59,9 @@ static int print_operand(struct asm_operand *op)
     case AOT_CONSTANT:
         printf("%d", op->data.value);
         break;
+    case AOT_LABEL:
+        printf("%s", op->data.label);
+        break;
     }
     return 1;
 }
@@ -67,7 +73,7 @@ static void print_opcode(struct asm_opcode *opcode)
     {
         int i;
         struct asm_command *cmd = opcode->data.command.cmd;
-        printf("%s", cmd->name);
+        printf("\t%s", cmd->name);
         for (i = 0; i < cmd->op_count; i++) {
             printf(i == 0 ? " " : ", ");
             print_operand(opcode->data.command.ops[i]);
@@ -117,11 +123,34 @@ static void emit(enum asm_command_type cmd, ...)
     add_opcode(opcode);
 }
 
+static void emit_text(char *format, ...)
+{
+    struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
+    opcode->type = ACT_TEXT;
+
+    char *buffer = jacc_malloc(256);
+    va_list args;
+    va_start(args, format);
+    vsprintf(buffer, format, args);
+    va_end(args);
+
+    opcode->data.text = buffer;
+    add_opcode(opcode);
+}
+
 static struct asm_operand *constant(int value)
 {
     struct asm_operand *operand = jacc_malloc(sizeof(*operand));
     operand->type = AOT_CONSTANT;
     operand->data.value = value;
+    return operand;
+}
+
+static struct asm_operand *label(const char *label)
+{
+    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
+    operand->type = AOT_LABEL;
+    operand->data.label = label;
     return operand;
 }
 
@@ -134,6 +163,49 @@ static struct asm_operand *memory(struct asm_operand *base, struct asm_operand *
     operand->data.memory.index = index;
     operand->data.memory.scale = scale;
     return operand;
+}
+
+static void generate_expr(struct node *expr)
+{
+
+}
+
+static void generate_function(struct symbol *func)
+{
+    if ((func->flags & SF_EXTERN) == SF_EXTERN) {
+        emit_text("extrn _%s", func->name);
+        return;
+    }
+
+    int is_main = strcmp(func->name, "main") == 0;
+
+    emit_text("; start %s", func->name);
+    if ((func->flags & SF_STATIC) != SF_STATIC) {
+        emit_text("public _%s", func->name);
+        if (is_main) {
+            emit_text("public _main as 'main'");
+        }
+    }
+
+    emit_text("_%s:", func->name);
+    if (!is_main) {
+        emit(ASM_PUSH, ebp);
+        emit(ASM_MOV, ebp, esp);
+    }
+
+    generate_expr(func->expr);
+
+    if (!is_main) {
+        emit(ASM_MOV, esp, ebp);
+        emit(ASM_POP, ebp);
+        emit(ASM_RET);
+    } else {
+        emit(ASM_PUSH, constant(0));
+        emit_text("\textrn exit");
+        emit(ASM_CALL, label("exit"));
+    }
+
+    emit_text("; end %s\n", func->name);
 }
 
 extern void generator_init()
@@ -157,6 +229,13 @@ extern code_t generator_process(symtable_t symtable)
 
     cur_code = code;
 
+    symtable_iter_t iter = symtable_first(symtable);
+    for (; iter != NULL; iter = symtable_iter_next(iter)) {
+        struct symbol *symbol = symtable_iter_value(iter);
+        if (symbol->type == ST_FUNCTION) {
+            generate_function(symbol);
+        }
+    }
     return code;
 }
 

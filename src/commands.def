@@ -1,2 +1,9 @@
 COMMAND(ADD, add, 2)
 COMMAND(SUB, sub, 2)
+
+COMMAND(MOV, mov, 2)
+COMMAND(PUSH, push, 1)
+COMMAND(POP, pop, 1)
+
+COMMAND(CALL, call, 1)
+COMMAND(RET, ret, 0)

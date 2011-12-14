@@ -24,6 +24,7 @@ enum asm_operand_type {
     AOT_REGISTER,
     AOT_MEMORY,
     AOT_CONSTANT,
+    AOT_LABEL,
 };
 
 struct asm_operand {
@@ -34,6 +35,7 @@ struct asm_operand {
             int scale;
         } memory;
         const char *register_name;
+        const char *label;
         int value;
     } data;
 };
