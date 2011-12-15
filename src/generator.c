@@ -243,6 +243,12 @@ static struct asm_operand *lvalue(struct node *expr)
         }
         break;
     }
+    case NT_DEREFERENCE:
+        generate_expr(expr->ops[0]);
+        emit(ASM_POP, eax);
+        return deref(eax);
+    case NT_REFERENCE:
+        break;
     default:
         emit_text("; '%s' is not lvalue", parser_node_info(expr)->repr);
     }
@@ -331,6 +337,12 @@ static void generate_binary_int_op(struct node *expr)
     emit(ASM_PUSH, eax);
 }
 
+static void generate_lvalue(struct node *expr)
+{
+    emit(ASM_LEA, eax, lvalue(expr));
+    emit(ASM_PUSH, eax);
+}
+
 static void generate_expr(struct node *expr)
 {
     switch (expr->type) {
@@ -394,23 +406,60 @@ static void generate_expr(struct node *expr)
     }
     case NT_ASSIGN:
     {
+        emit_text("; lv1");
+        generate_lvalue(expr->ops[0]);
+        emit_text("; lv2");
         generate_expr(expr->ops[1]);
+        emit_text("; lv3");
         emit(ASM_POP, eax);
-        emit(ASM_MOV, lvalue(expr->ops[0]), eax);
+        emit(ASM_POP, ebx);
+        emit(ASM_MOV, deref(ebx), eax);
+        emit(ASM_PUSH, eax);
         return;
     }
+    case NT_CAST:
+        generate_expr(expr->ops[0]);
+        return;
+    case NT_REFERENCE:
+        emit(ASM_LEA, eax, lvalue(expr->ops[0]));
+        emit(ASM_PUSH, eax);
+        return;
+    case NT_DEREFERENCE:
+        generate_expr(expr->ops[0]);
+        emit(ASM_POP, eax);
+        emit(ASM_PUSH, dword(deref(eax)));
+        return;
     case NT_VARIABLE:
         emit(ASM_PUSH, lvalue(expr));
         return;
     case NT_INT:
         emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
         return;
+    case NT_ADD:
+    {
+        struct symbol *s1 = resolve_alias(expr->ops[0]->type_sym);
+        if (is_ptr_type(s1)) {
+            emit_text("; 11");
+            generate_expr(expr->ops[0]);
+            generate_expr(expr->ops[1]);
+            emit(ASM_POP, eax);
+            emit(ASM_MOV, ebx, constant(s1->base_type->size));
+            emit(ASM_MUL, ebx);
+            emit(ASM_POP, ebx);
+            emit(ASM_ADD, eax, ebx);
+            emit(ASM_PUSH, eax);
+            emit_text("; 12");
+            return;
+        }
+        break;
+    }
     }
 
     switch (parser_node_info(expr)->cat) {
     case NC_UNARY: generate_unary_int_op(expr); return;
     case NC_BINARY: generate_binary_int_op(expr); return;
     }
+
     emit_text("; unknown node %s", parser_node_info(expr)->repr);
 }
 

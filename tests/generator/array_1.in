@@ -1,0 +1,12 @@
+int g[4];
+void main()
+{
+    int y[4];
+    y[1] = 22;
+    g[0] = 7;
+    printf("%d %d\n", y[1], g[0]);
+    printf("%d %d\n", 1[y], 0[g]);
+
+    int i = 0;
+    printf("%d %d\n", g[i], g[i]);
+}

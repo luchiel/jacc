@@ -103,4 +103,7 @@ extern int parser_is_void_symbol(struct symbol *symbol);
 extern void parser_flags_set(int new_flags);
 extern int parser_flags_get();
 
+extern int is_ptr_type(struct symbol *symbol);
+extern struct symbol *resolve_alias(struct symbol *symbol);
+
 #endif

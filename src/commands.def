@@ -1,6 +1,8 @@
 COMMAND(ADD, add, 2)
 COMMAND(SUB, sub, 2)
+COMMAND(MUL, mul, 1)
 COMMAND(IMUL, imul, 1)
+COMMAND(DIV, div, 1)
 COMMAND(IDIV, idiv, 1)
 COMMAND(SAL, sal, 2)
 COMMAND(SAR, sar, 2)
@@ -14,6 +16,7 @@ COMMAND(NOT, not, 1)
 COMMAND(CDQ, cdq, 0)
 
 COMMAND(MOV, mov, 2)
+COMMAND(LEA, lea, 2)
 COMMAND(PUSH, push, 1)
 COMMAND(POP, pop, 1)
 

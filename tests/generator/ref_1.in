@@ -1,0 +1,8 @@
+int c;
+
+void main()
+{
+    int a = 55, b;
+    printf("%d\n", &a != &b);
+    printf("%d\n", *&a);
+}

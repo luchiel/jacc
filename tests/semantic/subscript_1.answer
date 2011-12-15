@@ -12,13 +12,13 @@ test_subscript is function returning nothing defined as {
    ]
     +-(*) -> <int>
        |
-       +-(+) -> <array [
-               (5)
-            ] of int>
+       +-(+) -> <pointer to int>
           |
-          +-(var a) -> <array [
-          |       (5)
-          |    ] of int>
+          +-(&) -> <pointer to int>
+          |  |
+          |  +-(var a) -> <array [
+          |          (5)
+          |       ] of int>
           |
           +-(3)
 
@@ -32,17 +32,19 @@ test_subscript is function returning nothing defined as {
           |       (5)
           |    ] of int>
           |  |
-          |  +-(+) -> <array [
-          |          (5)
-          |       ] of array [
+          |  +-(+) -> <pointer to array [
           |          (5)
           |       ] of int>
           |     |
-          |     +-(var b) -> <array [
-          |     |       (5)
-          |     |    ] of array [
+          |     +-(&) -> <pointer to array [
           |     |       (5)
           |     |    ] of int>
+          |     |  |
+          |     |  +-(var b) -> <array [
+          |     |          (5)
+          |     |       ] of array [
+          |     |          (5)
+          |     |       ] of int>
           |     |
           |     +-(1)
           |

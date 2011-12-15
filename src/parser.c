@@ -203,7 +203,7 @@ static int is_var_symbol(struct symbol *symbol)
     return 0;
 }
 
-static int is_ptr_type(struct symbol *symbol)
+extern int is_ptr_type(struct symbol *symbol)
 {
     if (symbol == NULL) {
         return 0;
@@ -270,7 +270,7 @@ static int check_is_lvalue(struct node *node)
     return 1;
 }
 
-static struct symbol *resolve_alias(struct symbol *symbol)
+extern struct symbol *resolve_alias(struct symbol *symbol)
 {
     while (symbol->type == ST_TYPE_ALIAS || is_var_symbol(symbol)) {
         symbol = symbol->base_type;
@@ -466,7 +466,7 @@ static int set_binary_expr_type(struct node *node)
     struct symbol *t1 = resolve_alias(node->ops[0]->type_sym);
     struct symbol *t2 = resolve_alias(node->ops[1]->type_sym);
 
-    if (node->type == NT_SUB && is_ptr_type(t1) && is_ptr_type(t2)) {
+    if ((node->type == NT_SUB || node->type == NT_EQ || node->type == NT_NE) && is_ptr_type(t1) && is_ptr_type(t2)) {
         if (!is_compatible_types(t1, t2)) {
             return 0;
         }
@@ -596,6 +596,14 @@ static struct node *parse_primary_expr()
             }
             var_node->base.type_sym = var_node->symbol;
             next_token();
+            struct symbol *symbol = resolve_alias(var_node->symbol);
+            if (symbol->type == ST_ARRAY) {
+                ALLOC_NODE_EX(NT_REFERENCE, cast_node, cast_node)
+                cast_node->ops[0] = (struct node*)var_node;
+                cast_node->base.type_sym = alloc_symbol(ST_POINTER);
+                cast_node->base.type_sym->base_type = symbol->base_type;
+                return (struct node*)cast_node;
+            }
             return (struct node*)var_node;
         } else {
             return parse_ident();
@@ -770,7 +778,7 @@ static struct node *parse_postfix_expr()
                         return NULL;
                     }
 
-                    struct symbol *type = unode->ops[1]->type_sym;
+                    struct symbol *type = resolve_alias(node->ops[1]->type_sym);
                     if (type != &sym_int && type != &sym_char && type->type != ST_ENUM_CONST) {
                         parser_error("array index must be integer expression");
                         return NULL;
@@ -1338,15 +1346,11 @@ static struct node *parse_stmt()
 static struct symbol *parse_array_declarator(struct symbol *base_type)
 {
     struct symbol *array = alloc_symbol(ST_ARRAY);
-    int count = 0;
 
     CONSUME(TOK_LBRACKET)
     if (!accept(TOK_RBRACKET)) {
         PARSE(array->expr, const_expr)
         CONSUME(TOK_RBRACKET)
-        if (array->expr->type == NT_INT) {
-            count = ((struct int_node*)array->expr)->value;
-        }
     }
 
     if (token.type == TOK_LBRACKET) {
@@ -1354,7 +1358,6 @@ static struct symbol *parse_array_declarator(struct symbol *base_type)
     } else {
         array->base_type = base_type;
     }
-    array->size = array->base_type->size * count;
     return array;
 }
 
@@ -1522,6 +1525,22 @@ static struct symbol *parse_enum_specifier()
     return symbol;
 }
 
+static int calc_symbol_size(struct symbol *symbol)
+{
+    if (symbol->size != 0) {
+        return symbol->size;
+    }
+    switch (symbol->type) {
+    case ST_ARRAY:
+        if (symbol->expr != NULL && symbol->expr->type == NT_INT) {
+            int count = ((struct int_node*)symbol->expr)->value;
+            symbol->size = count * calc_symbol_size(symbol->base_type);
+        }
+        break;
+    }
+    return symbol->size;
+}
+
 static struct symbol *parse_declarator(struct symbol *base_type, const char **name)
 {
     struct symbol *symbol;
@@ -1530,6 +1549,7 @@ static struct symbol *parse_declarator(struct symbol *base_type, const char **na
         return base_type;
     }
     get_root_type(symbol)->base_type = base_type;
+    symbol->size = calc_symbol_size(symbol);
     return symbol;
 }
 
