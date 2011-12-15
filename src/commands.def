@@ -8,6 +8,9 @@ COMMAND(SAL, sal, 2)
 COMMAND(SAR, sar, 2)
 COMMAND(NEG, neg, 1)
 
+COMMAND(INC, inc, 1)
+COMMAND(DEC, dec, 1)
+
 COMMAND(XOR, xor, 2)
 COMMAND(OR, or, 2)
 COMMAND(AND, and, 2)

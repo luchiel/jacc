@@ -256,6 +256,12 @@ static struct asm_operand *lvalue(struct node *expr)
     return deref(constant(0));
 }
 
+static void generate_lvalue(struct node *expr)
+{
+    emit(ASM_LEA, eax, lvalue(expr));
+    emit(ASM_PUSH, eax);
+}
+
 static void generate_int_cmp(enum asm_command_type cmd)
 {
     emit(ASM_XOR, ecx, ecx);
@@ -290,6 +296,28 @@ static void generate_unary_int_op(struct node *expr, int ret)
     case NT_COMPLEMENT: emit(ASM_NOT, eax); break;
     case NT_NEGATION: emit(ASM_NEG, eax); break;
     case NT_IDENTITY: break;
+    case NT_PREFIX_INC:
+    case NT_PREFIX_DEC:
+        emit_text("; 1");
+        generate_lvalue(expr->ops[0]);
+        emit(ASM_POP, ebx);
+        if (expr->type == NT_PREFIX_INC)
+            emit(ASM_INC, dword(deref(ebx)));
+        else
+            emit(ASM_DEC, dword(deref(ebx)));
+        if (ret) emit(ASM_MOV, eax, dword(deref(ebx)));
+        emit_text("; 2");
+        break;
+    case NT_POSTFIX_INC:
+    case NT_POSTFIX_DEC:
+        generate_lvalue(expr->ops[0]);
+        emit(ASM_POP, ebx);
+        if (ret) emit(ASM_MOV, eax, dword(deref(ebx)));
+        if (expr->type == NT_POSTFIX_INC)
+            emit(ASM_INC, dword(deref(ebx)));
+        else
+            emit(ASM_DEC, dword(deref(ebx)));
+        break;
     default:
         emit_text("; unknown unary node %s", parser_node_info(expr)->repr);
     }
@@ -336,12 +364,6 @@ static void generate_binary_int_op(struct node *expr, int ret)
         emit_text("; unknown binary node %s", parser_node_info(expr)->repr);
     }
     if (ret) emit(ASM_PUSH, eax);
-}
-
-static void generate_lvalue(struct node *expr)
-{
-    emit(ASM_LEA, eax, lvalue(expr));
-    emit(ASM_PUSH, eax);
 }
 
 static void generate_statement(struct node *expr)
@@ -405,6 +427,22 @@ static void generate_statement(struct node *expr)
     }
 }
 
+static char *emit_data_array(const char *data_ptr, int size)
+{
+    char *str_label = gen_label();
+    char *buf = jacc_malloc(15 + 4 * size);
+    char *ptr = buf;
+
+    ptr += sprintf(ptr, "_%s db ", str_label);
+    int i = 0;
+    for (; i < size; i++) {
+        ptr += sprintf(ptr, i == 0 ? "%u" : ",%u", data_ptr[i]);
+    }
+
+    emit_data(buf);
+    return str_label;
+}
+
 static void generate_expr(struct node *expr, int ret)
 {
     if (expr == NULL) {
@@ -442,25 +480,21 @@ static void generate_expr(struct node *expr, int ret)
     case NT_STRING:
     {
         const char *str = ((struct string_node*)expr)->value;
-        int str_len = strlen(str);
-
-        char *str_label = gen_label();
-        char *buf = jacc_malloc(15 + 4 * str_len);
-        char *ptr = buf;
-
-        ptr += sprintf(ptr, "_%s db ", str_label);
-        int i = 0;
-        for (; i <= str_len; i++) {
-            ptr += sprintf(ptr, i == 0 ? "%d" : ",%d", str[i]);
-        }
-
-        emit_data(buf);
-        emit(ASM_PUSH, label(str_label));
+        char *str_label = emit_data_array(str, strlen(str) + 1);
+        if (ret) emit(ASM_PUSH, label(str_label));
+        return;
+    }
+    case NT_DOUBLE:
+    {
+        float value = ((struct double_node*)expr)->value;
+        emit_text("; %f", value);
+        char *data_label = emit_data_array((char *)&value, 4);
+        if (ret) emit(ASM_PUSH, dword(deref(label(data_label))));
         return;
     }
     case NT_MEMBER:
         emit(ASM_MOV, eax, lvalue(expr));
-        emit(ASM_PUSH, eax);
+        if (ret) emit(ASM_PUSH, eax);
         return;
     case NT_TERNARY:
     {
