@@ -344,6 +344,28 @@ static void generate_lvalue(struct node *expr)
     emit(ASM_PUSH, eax);
 }
 
+static void generate_statement(struct node *expr)
+{
+    switch (expr->type) {
+    case NT_IF:
+    {
+        char *l1 = gen_label(), *l2 = gen_label();
+        generate_expr(expr->ops[0]);
+        emit(ASM_POP, eax);
+        emit(ASM_TEST, eax, eax);
+        emit(ASM_JZ, label(l1));
+        generate_expr(expr->ops[1]);
+        emit(ASM_JMP, label(l2));
+        emit_label(l1);
+        generate_expr(expr->ops[2]);
+        emit_label(l2);
+        break;
+    }
+    default:
+        emit_text("; unknown statement %s", parser_node_info(expr)->repr);
+    }
+}
+
 static void generate_expr(struct node *expr)
 {
     switch (expr->type) {
@@ -458,6 +480,7 @@ static void generate_expr(struct node *expr)
     switch (parser_node_info(expr)->cat) {
     case NC_UNARY: generate_unary_int_op(expr); return;
     case NC_BINARY: generate_binary_int_op(expr); return;
+    case NC_STATEMENT: generate_statement(expr); return;
     }
 
     emit_text("; unknown node %s", parser_node_info(expr)->repr);
