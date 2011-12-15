@@ -217,7 +217,7 @@ static char *gen_label()
     return buf;
 }
 
-static void generate_expr(struct node *expr);
+static void generate_expr(struct node *expr, int ret);
 
 static struct asm_operand *lvalue(struct node *expr)
 {
@@ -244,7 +244,7 @@ static struct asm_operand *lvalue(struct node *expr)
         break;
     }
     case NT_DEREFERENCE:
-        generate_expr(expr->ops[0]);
+        generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
         return deref(eax);
     case NT_MEMBER:
@@ -276,9 +276,9 @@ static void generate_int_logical_op(enum asm_command_type cmd)
     emit(ASM_MOV, eax, ecx);
 }
 
-static void generate_unary_int_op(struct node *expr)
+static void generate_unary_int_op(struct node *expr, int ret)
 {
-    generate_expr(expr->ops[0]);
+    generate_expr(expr->ops[0], 1);
     emit(ASM_POP, eax);
     switch (expr->type) {
     case NT_LOGICAL_NEGATION:
@@ -293,13 +293,13 @@ static void generate_unary_int_op(struct node *expr)
     default:
         emit_text("; unknown unary node %s", parser_node_info(expr)->repr);
     }
-    emit(ASM_PUSH, eax);
+    if (ret) emit(ASM_PUSH, eax);
 }
 
-static void generate_binary_int_op(struct node *expr)
+static void generate_binary_int_op(struct node *expr, int ret)
 {
-    generate_expr(expr->ops[0]);
-    generate_expr(expr->ops[1]);
+    generate_expr(expr->ops[0], 1);
+    generate_expr(expr->ops[1], 1);
     emit(ASM_POP, ebx);
     emit(ASM_POP, eax);
 
@@ -335,7 +335,7 @@ static void generate_binary_int_op(struct node *expr)
     default:
         emit_text("; unknown binary node %s", parser_node_info(expr)->repr);
     }
-    emit(ASM_PUSH, eax);
+    if (ret) emit(ASM_PUSH, eax);
 }
 
 static void generate_lvalue(struct node *expr)
@@ -350,14 +350,53 @@ static void generate_statement(struct node *expr)
     case NT_IF:
     {
         char *l1 = gen_label(), *l2 = gen_label();
-        generate_expr(expr->ops[0]);
+        generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
         emit(ASM_TEST, eax, eax);
         emit(ASM_JZ, label(l1));
-        generate_expr(expr->ops[1]);
+        generate_expr(expr->ops[1], 0);
         emit(ASM_JMP, label(l2));
         emit_label(l1);
-        generate_expr(expr->ops[2]);
+        generate_expr(expr->ops[2], 0);
+        emit_label(l2);
+        break;
+    }
+    case NT_WHILE:
+    {
+        char *l1 = gen_label(), *l2 = gen_label();
+        emit_label(l1);
+        generate_expr(expr->ops[0], 1);
+        emit(ASM_POP, eax);
+        emit(ASM_TEST, eax, eax);
+        emit(ASM_JZ, label(l2));
+        generate_expr(expr->ops[1], 0);
+        emit(ASM_JMP, label(l1));
+        emit_label(l2);
+        break;
+    }
+    case NT_DO_WHILE:
+    {
+        char *l1 = gen_label();
+        emit_label(l1);
+        generate_expr(expr->ops[0], 0);
+        generate_expr(expr->ops[1], 1);
+        emit(ASM_POP, eax);
+        emit(ASM_TEST, eax, eax);
+        emit(ASM_JNZ, label(l1));
+        break;
+    }
+    case NT_FOR:
+    {
+        char *l1 = gen_label(), *l2 = gen_label();
+        generate_expr(expr->ops[0], 0);
+        emit_label(l1);
+        generate_expr(expr->ops[1], 1);
+        emit(ASM_POP, eax);
+        emit(ASM_TEST, eax, eax);
+        emit(ASM_JZ, label(l2));
+        generate_expr(expr->ops[3], 0);
+        generate_expr(expr->ops[2], 0);
+        emit(ASM_JMP, label(l1));
         emit_label(l2);
         break;
     }
@@ -366,15 +405,21 @@ static void generate_statement(struct node *expr)
     }
 }
 
-static void generate_expr(struct node *expr)
+static void generate_expr(struct node *expr, int ret)
 {
+    if (expr == NULL) {
+        return;
+    }
+
     switch (expr->type) {
+    case NT_NOP:
+        return;
     case NT_LIST:
     {
         struct list_node *list = (struct list_node*)expr;
         int i = 0;
         for (; i < list->size; i++) {
-            generate_expr(list->items[i]);
+            generate_expr(list->items[i], 0);
         }
         return;
     }
@@ -383,7 +428,7 @@ static void generate_expr(struct node *expr)
         struct list_node *list = (struct list_node*)expr->ops[1];
         int i = list->size - 1, size = 0;
         for (; i >= 0; i--) {
-            generate_expr(list->items[i]);
+            generate_expr(list->items[i], 1);
             size += list->items[i]->type_sym->size;
         }
         struct asm_operand *target = label(expr->ops[0]->type_sym->name);
@@ -420,57 +465,58 @@ static void generate_expr(struct node *expr)
     case NT_TERNARY:
     {
         char *l1 = gen_label(), *l2 = gen_label();
-        generate_expr(expr->ops[0]);
+        generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
         emit(ASM_TEST, eax, eax);
         emit(ASM_JZ, label(l1));
-        generate_expr(expr->ops[1]);
+        generate_expr(expr->ops[1], ret);
         emit(ASM_JMP, label(l2));
         emit_label(l1);
-        generate_expr(expr->ops[2]);
+        generate_expr(expr->ops[2], ret);
         emit_label(l2);
         return;
     }
     case NT_ASSIGN:
     {
         generate_lvalue(expr->ops[0]);
-        generate_expr(expr->ops[1]);
+        generate_expr(expr->ops[1], 1);
         emit(ASM_POP, eax);
         emit(ASM_POP, ebx);
         emit(ASM_MOV, deref(ebx), eax);
-        emit(ASM_PUSH, eax);
+        if (ret) emit(ASM_PUSH, eax);
         return;
     }
     case NT_CAST:
-        generate_expr(expr->ops[0]);
+        generate_expr(expr->ops[0], ret);
         return;
     case NT_REFERENCE:
         emit(ASM_LEA, eax, lvalue(expr->ops[0]));
-        emit(ASM_PUSH, eax);
+        if (ret) emit(ASM_PUSH, eax);
         return;
     case NT_DEREFERENCE:
-        generate_expr(expr->ops[0]);
+        generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
-        emit(ASM_PUSH, dword(deref(eax)));
+        if (ret) emit(ASM_PUSH, dword(deref(eax)));
         return;
     case NT_VARIABLE:
-        emit(ASM_PUSH, lvalue(expr));
+        if (ret) emit(ASM_PUSH, lvalue(expr));
+        else lvalue(expr);
         return;
     case NT_INT:
-        emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
+        if (ret) emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
         return;
     case NT_ADD:
     {
         struct symbol *s1 = resolve_alias(expr->ops[0]->type_sym);
         if (is_ptr_type(s1)) {
-            generate_expr(expr->ops[0]);
-            generate_expr(expr->ops[1]);
+            generate_expr(expr->ops[0], 1);
+            generate_expr(expr->ops[1], 1);
             emit(ASM_POP, eax);
             emit(ASM_MOV, ebx, constant(s1->base_type->size));
             emit(ASM_MUL, ebx);
             emit(ASM_POP, ebx);
             emit(ASM_ADD, eax, ebx);
-            emit(ASM_PUSH, eax);
+            if (ret) emit(ASM_PUSH, eax);
             return;
         }
         break;
@@ -478,8 +524,8 @@ static void generate_expr(struct node *expr)
     }
 
     switch (parser_node_info(expr)->cat) {
-    case NC_UNARY: generate_unary_int_op(expr); return;
-    case NC_BINARY: generate_binary_int_op(expr); return;
+    case NC_UNARY: generate_unary_int_op(expr, ret); return;
+    case NC_BINARY: generate_binary_int_op(expr, ret); return;
     case NC_STATEMENT: generate_statement(expr); return;
     }
 
@@ -504,7 +550,7 @@ static void generate_function(struct symbol *func)
         emit(ASM_SUB, esp, constant(func->locals_size));
     }
 
-    generate_expr(func->expr);
+    generate_expr(func->expr, 0);
 
     if (func->locals_size != 0) {
         emit(ASM_ADD, esp, constant(func->locals_size));

@@ -1672,6 +1672,7 @@ static struct symbol *parse_declaration()
         }
 
         if (symbol->type == ST_FUNCTION) {
+            put_symbol(symbol->name, symbol, SC_NAME);
             if (token.type == TOK_LBRACE) {
                 function_locals_size = 0;
                 cur_decl_type = DT_LOCAL;
@@ -1710,8 +1711,8 @@ static struct symbol *parse_declaration()
                 symbol->offset = -function_locals_size;
                 function_locals_size += symbol->size;
             }
+            put_symbol(symbol->name, symbol, SC_NAME);
         }
-        put_symbol(symbol->name, symbol, SC_NAME);
 
         if (symbol->type == ST_FUNCTION && symbol->expr != NULL) {
             return &sym_null;
