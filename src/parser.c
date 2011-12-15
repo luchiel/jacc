@@ -1486,9 +1486,11 @@ static struct symbol *parse_struct_or_union_specifier()
                 continue;
             }
             if (symbol->type == ST_STRUCT) {
+                result->offset = symbol->size;
                 symbol->size += result->size;
             } else if (result->size > symbol->size) {
                 symbol->size = result->size;
+                result->offset = 0;
             }
         }
     }

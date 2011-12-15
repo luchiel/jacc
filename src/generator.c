@@ -247,8 +247,9 @@ static struct asm_operand *lvalue(struct node *expr)
         generate_expr(expr->ops[0]);
         emit(ASM_POP, eax);
         return deref(eax);
-    case NT_REFERENCE:
-        break;
+    case NT_MEMBER:
+        emit(ASM_LEA, eax, lvalue(expr->ops[0]));
+        return memory(eax, constant(expr->ops[1]->type_sym->offset), NULL, 1);
     default:
         emit_text("; '%s' is not lvalue", parser_node_info(expr)->repr);
     }
@@ -390,6 +391,10 @@ static void generate_expr(struct node *expr)
         emit(ASM_PUSH, label(str_label));
         return;
     }
+    case NT_MEMBER:
+        emit(ASM_MOV, eax, lvalue(expr));
+        emit(ASM_PUSH, eax);
+        return;
     case NT_TERNARY:
     {
         char *l1 = gen_label(), *l2 = gen_label();
@@ -406,11 +411,8 @@ static void generate_expr(struct node *expr)
     }
     case NT_ASSIGN:
     {
-        emit_text("; lv1");
         generate_lvalue(expr->ops[0]);
-        emit_text("; lv2");
         generate_expr(expr->ops[1]);
-        emit_text("; lv3");
         emit(ASM_POP, eax);
         emit(ASM_POP, ebx);
         emit(ASM_MOV, deref(ebx), eax);
@@ -439,7 +441,6 @@ static void generate_expr(struct node *expr)
     {
         struct symbol *s1 = resolve_alias(expr->ops[0]->type_sym);
         if (is_ptr_type(s1)) {
-            emit_text("; 11");
             generate_expr(expr->ops[0]);
             generate_expr(expr->ops[1]);
             emit(ASM_POP, eax);
@@ -448,7 +449,6 @@ static void generate_expr(struct node *expr)
             emit(ASM_POP, ebx);
             emit(ASM_ADD, eax, ebx);
             emit(ASM_PUSH, eax);
-            emit_text("; 12");
             return;
         }
         break;
