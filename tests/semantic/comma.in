@@ -3,5 +3,5 @@ void comma()
     1, 2;
     1, 2.;
     1., 2;
-    1, (char)2, (float)3;
+    1, (char)2, (double)3;
 }

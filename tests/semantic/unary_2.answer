@@ -39,7 +39,7 @@ test_unary is function returning <int> defined as {
     |     |
     |     +-(1)
     |
-    +-(-) -> <float>
+    +-(-) -> <double>
     |  |
     |  +-(1.000000)
     |
@@ -53,7 +53,7 @@ test_unary is function returning <int> defined as {
     |     |
     |     +-(1)
     |
-    +-(+) -> <float>
+    +-(+) -> <double>
        |
        +-(1.000000)
 }

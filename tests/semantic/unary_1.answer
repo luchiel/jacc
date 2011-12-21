@@ -4,7 +4,7 @@ test_unary is function returning nothing defined as {
       i is variable of type <int> = (
          (0)
       )
-      f is variable of type <float> = (
+      f is variable of type <double> = (
          (0.000000)
       )
    ]
@@ -16,13 +16,13 @@ test_unary is function returning nothing defined as {
        |
        +-(var i) -> <int>
 
-    +-(@++) -> <float>
+    +-(@++) -> <double>
        |
-       +-(var f) -> <float>
+       +-(var f) -> <double>
 
-    +-(@--) -> <float>
+    +-(@--) -> <double>
        |
-       +-(var f) -> <float>
+       +-(var f) -> <double>
 
     +-(++@) -> <int>
        |
@@ -32,11 +32,11 @@ test_unary is function returning nothing defined as {
        |
        +-(var i) -> <int>
 
-    +-(++@) -> <float>
+    +-(++@) -> <double>
        |
-       +-(var f) -> <float>
+       +-(var f) -> <double>
 
-    +-(--@) -> <float>
+    +-(--@) -> <double>
        |
-       +-(var f) -> <float>
+       +-(var f) -> <double>
 }

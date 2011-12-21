@@ -28,7 +28,7 @@ symtable_t symtables[SYMTABLE_MAX_DEPTH];
 int current_symtable;
 int name_uid = 0;
 int parser_flags = 0;
-struct symbol sym_null, sym_void, sym_int, sym_float, sym_char, sym_char_ptr, sym_printf;
+struct symbol sym_null, sym_void, sym_int, sym_double, sym_char, sym_char_ptr, sym_printf;
 
 pull_t parser_pull;
 int function_locals_size;
@@ -361,8 +361,8 @@ static struct symbol *_arith_common_type(struct symbol *s1, struct symbol *s2)
 {
     if (s1->type == ST_ENUM_CONST && (s2 == &sym_int || s2 == &sym_char)) {
         return &sym_int;
-    } else if (s1 == &sym_float && (s2 == &sym_float || s2 == &sym_int || s2 == &sym_char)) {
-        return &sym_float;
+    } else if (s1 == &sym_double && (s2 == &sym_double || s2 == &sym_int || s2 == &sym_char)) {
+        return &sym_double;
     } else if (s1 == &sym_int && (s2 == &sym_int || s2 == &sym_char)) {
         return &sym_int;
     } else if (s1 == &sym_char && s2 == &sym_char) {
@@ -499,7 +499,7 @@ static int set_binary_expr_type(struct node *node)
     struct symbol *common_type = arith_common_type(t1, t2);
     node->type_sym = is_cmp_node_type(node->type) ? &sym_int : common_type;
 
-    if (node->type_sym == &sym_float) {
+    if (node->type_sym == &sym_double) {
         if (is_int_only_node_type(node->type)) {
             return 0;
         }
@@ -521,7 +521,7 @@ static int set_inc_expr_type(struct node *node)
         return 0;
     }
     struct symbol *type = resolve_alias(node->ops[0]->type_sym);
-    if (type != &sym_int && type != &sym_char && type != &sym_float) {
+    if (type != &sym_int && type != &sym_char && type != &sym_double) {
         parser_error("invalid operand");
         return 0;
     }
@@ -628,7 +628,7 @@ static struct node *parse_primary_expr()
     {
         ALLOC_NODE_EX(NT_DOUBLE, node, double_node)
         node->value = token.value.float_val;
-        node->base.type_sym = &sym_float;
+        node->base.type_sym = &sym_double;
         next_token();
         return (struct node*)node;
     }
@@ -898,7 +898,7 @@ static struct node *parse_unary_expr()
                 break;
             case NT_NEGATION:
             case NT_IDENTITY:
-                if (type != &sym_int && type != &sym_char && type != &sym_float && type->type != ST_ENUM_CONST) {
+                if (type != &sym_int && type != &sym_char && type != &sym_double && type->type != ST_ENUM_CONST) {
                     parser_error("invalid operand");
                     return NULL;
                 }
@@ -1598,10 +1598,10 @@ static struct symbol *parse_type_specifier()
         return (struct symbol*)&sym_int;
     case TOK_FLOAT:
         next_token();
-        return (struct symbol*)&sym_float;
+        return (struct symbol*)&sym_double;
     case TOK_DOUBLE:
         next_token();
-        return (struct symbol*)&sym_float;
+        return (struct symbol*)&sym_double;
     case TOK_IDENT:
     {
         struct symbol *symbol = get_symbol(token.value.str_val, SC_NAME);
@@ -1764,8 +1764,8 @@ extern void parser_init()
 
     init_type("void", &sym_void, 0);
     init_type("int", &sym_int, 4);
-    init_type("double", &sym_float, 4);
-    init_type("float", &sym_float, 4);
+    init_type("float", &sym_double, 8);
+    init_type("double", &sym_double, 8);
     init_type("char", &sym_char, 1);
     init_type("printf", &sym_printf, 0);
 

@@ -7,19 +7,19 @@ int_test is function returning nothing defined as {
     |  |
     |  +-(2)
     |
-    +-(+) -> <float>
+    +-(+) -> <double>
     |  |
-    |  +-(cast to <float>)
+    |  +-(cast to <double>)
     |  |  |
     |  |  +-(1)
     |  |
     |  +-(2.000000)
     |
-    +-(+) -> <float>
+    +-(+) -> <double>
        |
        +-(2.000000)
        |
-       +-(cast to <float>)
+       +-(cast to <double>)
           |
           +-(1)
 }

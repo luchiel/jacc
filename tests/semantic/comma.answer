@@ -7,7 +7,7 @@ comma is function returning nothing defined as {
     |  |
     |  +-(2)
     |
-    +-(,) -> <float>
+    +-(,) -> <double>
     |  |
     |  +-(1)
     |  |
@@ -19,7 +19,7 @@ comma is function returning nothing defined as {
     |  |
     |  +-(2)
     |
-    +-(,) -> <float>
+    +-(,) -> <double>
        |
        +-(,) -> <char>
        |  |
@@ -29,7 +29,7 @@ comma is function returning nothing defined as {
        |     |
        |     +-(2)
        |
-       +-(cast to <float>)
+       +-(cast to <double>)
           |
           +-(3)
 }

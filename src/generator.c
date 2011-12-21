@@ -220,6 +220,11 @@ static struct asm_operand *dword(struct asm_operand *subop)
     return size_spec(AOS_DWORD, subop);
 }
 
+static struct asm_operand *qword(struct asm_operand *subop)
+{
+    return size_spec(AOS_QWORD, subop);
+}
+
 static label_t gen_label()
 {
     return ++label_counter;
@@ -441,10 +446,10 @@ static label_t emit_data_array(const char *data_ptr, int size)
     char *buf = jacc_malloc(15 + 4 * size);
     char *ptr = buf;
 
-    ptr += sprintf(ptr, "_@%d db ", str_label);
+    ptr += sprintf(ptr, "_@%d db ", (int)str_label);
     int i = 0;
     for (; i < size; i++) {
-        ptr += sprintf(ptr, i == 0 ? "%u" : ",%u", data_ptr[i]);
+        ptr += sprintf(ptr, i == 0 ? "%d" : ",%d", data_ptr[i] < 0 ? 256 + data_ptr[i] : data_ptr[i]);
     }
 
     emit_data(buf);
@@ -494,10 +499,14 @@ static void generate_expr(struct node *expr, int ret)
     }
     case NT_DOUBLE:
     {
-        float value = ((struct double_node*)expr)->value;
-        emit_text("; %f", value);
-        label_t data_label = emit_data_array((char *)&value, 4);
-        if (ret) emit(ASM_PUSH, dword(deref(label(data_label))));
+        double value = ((struct double_node*)expr)->value;
+        emit_text("; %lf", value);
+        label_t data_label = emit_data_array((char *)&value, 8);
+        if (ret) {
+            emit(ASM_SUB, esp, constant(8));
+            emit(ASM_FLD, qword(deref(label(data_label))));
+            emit(ASM_FSTP, qword(deref(esp)));
+        }
         return;
     }
     case NT_MEMBER:

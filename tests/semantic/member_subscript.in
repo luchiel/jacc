@@ -1,6 +1,6 @@
 struct S {
 	int a[10];
-	float y;
+	double y;
 } x[5];
 
 int main() {

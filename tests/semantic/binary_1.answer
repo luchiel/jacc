@@ -13,7 +13,7 @@ test_binary is function returning nothing defined as {
     |  |
     |  +-(2)
     |
-    +-(*) -> <float>
+    +-(*) -> <double>
     |  |
     |  +-(1.000000)
     |  |

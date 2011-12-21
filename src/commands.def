@@ -47,3 +47,6 @@ COMMAND(SETGE, setge, 1)
 
 COMMAND(CALL, call, 1)
 COMMAND(RET, ret, 0)
+
+COMMAND(FLD, fld, 1)
+COMMAND(FSTP, fstp, 1)

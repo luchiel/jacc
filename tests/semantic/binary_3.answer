@@ -39,7 +39,7 @@ test_binary is function returning nothing defined as {
     |
     +-(==) -> <int>
     |  |
-    |  +-(cast to <float>)
+    |  +-(cast to <double>)
     |  |  |
     |  |  +-(1)
     |  |
@@ -47,7 +47,7 @@ test_binary is function returning nothing defined as {
     |
     +-(>=) -> <int>
        |
-       +-(cast to <float>)
+       +-(cast to <double>)
        |  |
        |  +-(cast to <char>)
        |     |

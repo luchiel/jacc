@@ -2,7 +2,7 @@ tag "S" is struct S defined as {
    a is field of type <array [
       (10)
    ] of int>
-   y is field of type <float>
+   y is field of type <double>
 }
 
 x is variable of type <array [

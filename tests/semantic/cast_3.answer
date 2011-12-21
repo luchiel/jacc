@@ -39,19 +39,19 @@ char_test is function returning nothing defined as {
           |
           +-(var c) -> <char>
 
-    +-(+) -> <float>
+    +-(+) -> <double>
        |
-       +-(cast to <float>)
+       +-(cast to <double>)
        |  |
        |  +-(var c) -> <char>
        |
        +-(1.000000)
 
-    +-(+) -> <float>
+    +-(+) -> <double>
        |
        +-(1.000000)
        |
-       +-(cast to <float>)
+       +-(cast to <double>)
           |
           +-(var c) -> <char>
 }

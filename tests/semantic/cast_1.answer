@@ -9,7 +9,7 @@ t is function returning <int> defined as {
     |
     +-(cast to <int>)
     |  |
-    |  +-(cast to <float>)
+    |  +-(cast to <double>)
     |     |
     |     +-(7)
     |

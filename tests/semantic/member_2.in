@@ -1,4 +1,4 @@
-struct S { float y; };
+struct S { double y; };
 
 struct S y;
 typedef struct S St;
