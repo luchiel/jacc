@@ -26,10 +26,10 @@ enum asm_operand_type {
     AOT_CONSTANT,
     AOT_LABEL,
     AOT_TEXT_LABEL,
-    AOT_SIZE,
 };
 
 enum asm_operand_size {
+    AOS_NONE,
     AOS_BYTE,
     AOS_WORD,
     AOS_DWORD,
@@ -43,12 +43,9 @@ struct asm_operand {
     union {
         struct {
             struct asm_operand *base, *offset, *index;
+            enum asm_operand_size size;
             int scale;
         } memory;
-        struct {
-            enum asm_operand_size size;
-            struct asm_operand *subop;
-        } size;
         const char *register_name;
         label_t label;
         const char *text_label;

@@ -37,6 +37,13 @@ static int print_operand(struct asm_operand *op)
     case AOT_MEMORY:
     {
         int cnt = 0;
+        switch (op->data.memory.size) {
+        case AOS_BYTE: printf("byte "); break;
+        case AOS_WORD: printf("word "); break;
+        case AOS_DWORD: printf("dword "); break;
+        case AOS_QWORD: printf("qword "); break;
+        }
+
         printf("[");
         cnt += print_operand(op->data.memory.base);
         if (op->data.memory.index != NULL) {
@@ -66,15 +73,6 @@ static int print_operand(struct asm_operand *op)
         break;
     case AOT_TEXT_LABEL:
         printf("_%s", op->data.text_label);
-        break;
-    case AOT_SIZE:
-        switch (op->data.size.size) {
-        case AOS_BYTE: printf("byte "); break;
-        case AOS_WORD: printf("word "); break;
-        case AOS_DWORD: printf("dword "); break;
-        case AOS_QWORD: printf("qword "); break;
-        }
-        print_operand(op->data.size.subop);
         break;
     }
     return 1;
@@ -198,6 +196,7 @@ static struct asm_operand *memory(struct asm_operand *base, struct asm_operand *
     operand->data.memory.offset = offset;
     operand->data.memory.index = index;
     operand->data.memory.scale = scale;
+    operand->data.memory.size = AOS_NONE;
     return operand;
 }
 
@@ -206,17 +205,12 @@ static struct asm_operand *deref(struct asm_operand *base)
     return memory(base, NULL, NULL, 1);
 }
 
-static struct asm_operand *size_spec(enum asm_operand_size size, struct asm_operand *subop)
+static struct asm_operand *size_spec(enum asm_operand_size size, struct asm_operand *op)
 {
-    if (subop->type == AOT_SIZE) {
-        subop->data.size.size = size;
-        return subop;
+    if (op->type == AOT_MEMORY) {
+        op->data.memory.size = size;
     }
-    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
-    operand->type = AOT_SIZE;
-    operand->data.size.size = size;
-    operand->data.size.subop = subop;
-    return operand;
+    return op;
 }
 
 static struct asm_operand *dword(struct asm_operand *subop)
@@ -878,9 +872,6 @@ extern void generator_free_operand_data(struct asm_operand *operand)
         free_memory_subop(operand->data.memory.base);
         free_memory_subop(operand->data.memory.index);
         free_memory_subop(operand->data.memory.offset);
-        break;
-    case AOT_SIZE:
-        generator_free_operand_data(operand->data.size.subop);
         break;
     }
 }
