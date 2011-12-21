@@ -1,0 +1,6 @@
+void main()
+{
+    printf("%lf %lf\n", -1.1, -0.0);
+    printf("%lf %lf\n", +1.1, +0.0);
+    printf("%d %d\n", !1.1, !0.0);
+}

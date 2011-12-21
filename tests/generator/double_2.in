@@ -1,0 +1,13 @@
+struct a {
+    double a;
+};
+double a2[5];
+
+void main()
+{
+    struct a a, *ap = &a;
+    a.a = 2.2;
+    a2[1] = 1.1;
+    a2[3] = 3.3;
+    printf("%lf %lf %lf\n", a.a, ap->a, a2[3]);
+}

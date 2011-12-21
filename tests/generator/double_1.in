@@ -2,4 +2,8 @@ void main()
 {
     printf("%lf\n", 0.0);
     printf("%lf\n", 2.2);
+
+    double y = 11.3;
+    double *yp = &y;
+    printf("%lf %lf\n", y, *yp);
 }

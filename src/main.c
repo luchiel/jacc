@@ -349,8 +349,12 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
         print_symtable(symtable, 0);
     } else if (strcmp(cmd, "compile") == 0) {
         symtable = parser_parse();
-        code = generator_process(symtable);
-        generator_print_code(code);
+        if (symtable != NULL) {
+            code = generator_process(symtable);
+            generator_print_code(code);
+        } else {
+            print_symtable(symtable, 0);
+        }
     }
 
     parser_free_node(node);

@@ -885,10 +885,10 @@ static struct node *parse_unary_expr()
         next_token();
         PARSE(node->ops[0], cast_expr)
         if (calc_types()) {
-            struct symbol *type = node->ops[0]->type_sym;
+            struct symbol *type = resolve_alias(node->ops[0]->type_sym);
             switch (node->base.type) {
             case NT_LOGICAL_NEGATION:
-                if (!convert_ops_to(node->ops, 1, &sym_int)) {
+                if (type != &sym_double && !is_compatible_types(type, &sym_int)) {
                     parser_error("invalid operand");
                     return NULL;
                 }
@@ -900,14 +900,14 @@ static struct node *parse_unary_expr()
                     parser_error("invalid operand");
                     return NULL;
                 }
-                node->base.type_sym = node->ops[0]->type_sym;
+                node->base.type_sym = type;
                 break;
             case NT_DEREFERENCE:
                 if (!is_ptr_type(type)) {
                     parser_error("expected pointer type");
                     return NULL;
                 }
-                node->base.type_sym = node->ops[0]->type_sym->base_type;
+                node->base.type_sym = type->base_type;
                 break;
             case NT_REFERENCE:
                 if (!check_is_lvalue(node->ops[0])) {
@@ -917,7 +917,7 @@ static struct node *parse_unary_expr()
                 node->base.type_sym->base_type = is_var_symbol(type) ? type->base_type : type;
                 break;
             default:
-                node->base.type_sym = node->ops[0]->type_sym;
+                node->base.type_sym = type;
             }
         }
         return (struct node*)node;

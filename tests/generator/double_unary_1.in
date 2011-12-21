@@ -1,0 +1,16 @@
+void main()
+{
+    double i = 10.54;
+
+    printf("%lf ", i++);
+    printf("%lf\n", i++);
+
+    printf("%lf ", i--);
+    printf("%lf\n", i--);
+
+    printf("%lf ", ++i);
+    printf("%lf\n", ++i);
+
+    printf("%lf ", --i);
+    printf("%lf\n", --i);
+}

@@ -208,6 +208,10 @@ static struct asm_operand *deref(struct asm_operand *base)
 
 static struct asm_operand *size_spec(enum asm_operand_size size, struct asm_operand *subop)
 {
+    if (subop->type == AOT_SIZE) {
+        subop->data.size.size = size;
+        return subop;
+    }
     struct asm_operand *operand = jacc_malloc(sizeof(*operand));
     operand->type = AOT_SIZE;
     operand->data.size.size = size;
@@ -223,6 +227,21 @@ static struct asm_operand *dword(struct asm_operand *subop)
 static struct asm_operand *qword(struct asm_operand *subop)
 {
     return size_spec(AOS_QWORD, subop);
+}
+
+static void push_value(struct asm_operand *op, struct symbol *type, int ret)
+{
+    if (!ret) {
+        return;
+    }
+    type = resolve_alias(type);
+    if (type == &sym_double) {
+        emit(ASM_SUB, esp, constant(8));
+        emit(ASM_FLD, qword(op));
+        emit(ASM_FSTP, qword(deref(esp)));
+    } else {
+        emit(ASM_PUSH, dword(op));
+    }
 }
 
 static label_t gen_label()
@@ -242,7 +261,7 @@ static struct asm_operand *lvalue(struct node *expr)
         case ST_PARAMETER:
             return dword(memory(ebp, constant(var->symbol->offset + 8), NULL, 1));
         case ST_VARIABLE:
-            return dword(memory(ebp, constant(var->symbol->offset - 4), NULL, 1));
+            return dword(memory(ebp, constant(var->symbol->offset - var->symbol->size), NULL, 1));
         case ST_GLOBAL_VARIABLE:
             if (var->symbol->label == 0) {
                 var->symbol->label = gen_label();
@@ -385,6 +404,80 @@ static void generate_double_cmp(enum asm_command_type cmd)
     emit(cmd, cl);
     emit(ASM_PUSH, ecx);
     emit(ASM_FFREEP, st0);
+}
+
+
+static void generate_unary_double_op(struct node *expr, int ret)
+{
+    switch (expr->type) {
+    case NT_LOGICAL_NEGATION:
+        generate_expr(expr->ops[0], ret);
+        emit(ASM_FLD, qword(deref(esp)));
+        emit(ASM_FLDZ);
+        emit(ASM_XOR, ecx, ecx);
+        emit(ASM_FCOMIP, st1);
+        emit(ASM_SETE, cl);
+        emit(ASM_FFREEP, st0);
+        if (ret) {
+            emit(ASM_MOV, memory(esp, constant(4), NULL, 0), ecx);
+            emit(ASM_ADD, esp, constant(4));
+        } else {
+            emit(ASM_ADD, esp, constant(8));
+        }
+        break;
+    case NT_NEGATION:
+        generate_expr(expr->ops[0], ret);
+        if (ret) {
+            emit(ASM_FLD, qword(deref(esp)));
+            emit(ASM_FCHS);
+            emit(ASM_FSTP, qword(deref(esp)));
+        } else {
+            emit(ASM_ADD, esp, constant(8));
+        }
+        break;
+    case NT_IDENTITY:
+        generate_expr(expr->ops[0], ret);
+        if (!ret) {
+            emit(ASM_ADD, esp, constant(8));
+        }
+        break;
+    case NT_PREFIX_INC:
+    case NT_PREFIX_DEC:
+        generate_lvalue(expr->ops[0]);
+        emit(ASM_POP, eax);
+        emit(ASM_FLD, qword(deref(eax)));
+        emit(ASM_FLD1);
+        if (expr->type == NT_PREFIX_INC)
+            emit(ASM_FADDP);
+        else
+            emit(ASM_FSUBP);
+        if (ret) {
+            emit(ASM_FST, qword(deref(eax)));
+            emit(ASM_SUB, esp, constant(8));
+            emit(ASM_FSTP, qword(deref(esp)));
+        } else {
+            emit(ASM_FSTP, qword(deref(eax)));
+        }
+        break;
+    case NT_POSTFIX_INC:
+    case NT_POSTFIX_DEC:
+        generate_lvalue(expr->ops[0]);
+        emit(ASM_POP, eax);
+        emit(ASM_FLD, qword(deref(eax)));
+        if (ret) {
+            emit(ASM_SUB, esp, constant(8));
+            emit(ASM_FST, qword(deref(esp)));
+        }
+        emit(ASM_FLD1);
+        if (expr->type == NT_POSTFIX_INC)
+            emit(ASM_FADDP);
+        else
+            emit(ASM_FSUBP);
+        emit(ASM_FSTP, qword(deref(eax)));
+        break;
+    default:
+        emit_text("; unknown unary node %s", parser_node_info(expr)->repr);
+    }
 }
 
 static void generate_binary_double_op(struct node *expr, int ret)
@@ -539,16 +632,12 @@ static void generate_expr(struct node *expr, int ret)
     {
         double value = ((struct double_node*)expr)->value;
         label_t data_label = emit_data_array((char *)&value, 8);
-        if (ret) {
-            emit(ASM_SUB, esp, constant(8));
-            emit(ASM_FLD, qword(deref(label(data_label))));
-            emit(ASM_FSTP, qword(deref(esp)));
-        }
+        push_value(deref(label(data_label)), expr->type_sym, ret);
         return;
     }
     case NT_MEMBER:
-        emit(ASM_MOV, eax, lvalue(expr));
-        if (ret) emit(ASM_PUSH, eax);
+        emit(ASM_LEA, eax, lvalue(expr));
+        push_value(deref(eax), expr->type_sym, ret);
         return;
     case NT_TERNARY:
     {
@@ -566,12 +655,26 @@ static void generate_expr(struct node *expr, int ret)
     }
     case NT_ASSIGN:
     {
-        generate_lvalue(expr->ops[0]);
-        generate_expr(expr->ops[1], 1);
-        emit(ASM_POP, eax);
-        emit(ASM_POP, ebx);
-        emit(ASM_MOV, deref(ebx), eax);
-        if (ret) emit(ASM_PUSH, eax);
+        struct symbol *s0 = resolve_alias(expr->ops[0]->type_sym);
+        if (s0 == &sym_double) {
+            generate_expr(expr->ops[1], 1);
+            emit(ASM_FLD, qword(deref(esp)));
+            generate_lvalue(expr->ops[0]);
+            emit(ASM_POP, eax);
+            if (ret) {
+                emit(ASM_FST, qword(deref(esp)));
+            } else {
+                emit(ASM_ADD, esp, constant(8));
+            }
+            emit(ASM_FSTP, qword(deref(eax)));
+        } else {
+            generate_lvalue(expr->ops[0]);
+            generate_expr(expr->ops[1], 1);
+            emit(ASM_POP, ebx);
+            emit(ASM_POP, eax);
+            emit(ASM_MOV, deref(eax), ebx);
+            if (ret) emit(ASM_PUSH, ebx);
+        }
         return;
     }
     case NT_CAST:
@@ -584,11 +687,11 @@ static void generate_expr(struct node *expr, int ret)
     case NT_DEREFERENCE:
         generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
-        if (ret) emit(ASM_PUSH, dword(deref(eax)));
+        emit_text("; ");
+        push_value(dword(deref(eax)), expr->type_sym, ret);
         return;
     case NT_VARIABLE:
-        if (ret) emit(ASM_PUSH, lvalue(expr));
-        else lvalue(expr);
+        push_value(lvalue(expr), expr->type_sym, ret);
         return;
     case NT_INT:
         if (ret) emit(ASM_PUSH, constant(((struct int_node*)expr)->value));
@@ -613,20 +716,32 @@ static void generate_expr(struct node *expr, int ret)
 
     enum node_category cat = parser_node_info(expr)->cat;
     switch (cat) {
+    case NC_UNARY:
+    {
+        struct symbol *s0 = resolve_alias(expr->ops[0]->type_sym);
+        if (s0 == &sym_double) {
+            generate_unary_double_op(expr, ret);
+            return;
+        } else if (is_compatible_types(s0, &sym_int) || s0->type == ST_POINTER) {
+            generate_unary_int_op(expr, ret);
+            return;
+        }
+        return;
+    }
+    case NC_BINARY:
+    {
+        struct symbol *s0 = resolve_alias(expr->ops[0]->type_sym);
+        if (s0 == &sym_double) {
+            generate_binary_double_op(expr, ret);
+            return;
+        } else if (is_compatible_types(s0, &sym_int) || s0->type == ST_POINTER) {
+            generate_binary_int_op(expr, ret);
+            return;
+        }
+    }
     case NC_STATEMENT:
         generate_statement(expr);
         return;
-    case NC_UNARY:
-        generate_unary_int_op(expr, ret);
-        return;
-    case NC_BINARY:
-        if (is_compatible_types(expr->ops[0]->type_sym, &sym_int) || expr->ops[0]->type_sym->type == ST_POINTER) {
-            generate_binary_int_op(expr, ret);
-            return;
-        } else if (expr->ops[0]->type_sym == &sym_double) {
-            generate_binary_double_op(expr, ret);
-            return;
-        }
     }
     emit_text("; unknown node %s", parser_node_info(expr)->repr);
 }
@@ -643,6 +758,9 @@ static void generate_function(struct symbol *func)
 
     emit_text("_%s:", func->name);
 
+    if (is_main) {
+        emit(ASM_MOV, dword(deref(text_label("@main_esp"))), esp);
+    }
     emit(ASM_PUSH, ebp);
     emit(ASM_MOV, ebp, esp);
     if (func->locals_size != 0) {
@@ -659,6 +777,14 @@ static void generate_function(struct symbol *func)
     emit(ASM_POP, ebp);
 
     if (is_main) {
+        label_t l1 = gen_label();
+        emit(ASM_CMP, esp, dword(deref(text_label("@main_esp"))));
+        emit(ASM_JE, label(l1));
+        emit(ASM_PUSH, text_label("@stack_corruption_msg"));
+        emit(ASM_CALL, deref(text_label("printf")));
+        emit(ASM_ADD, esp, constant(4));
+
+        emit_label(l1);
         emit(ASM_PUSH, constant(0));
         emit(ASM_CALL, deref(text_label("ExitProcess")));
     } else {
@@ -714,7 +840,9 @@ extern void generator_print_code(code_t code)
     }
 
     printf("section '.data' data readable writable\n\n");
-    printf("placeholder db 0\n");
+    printf("_@main_esp dd ?\n");
+    printf("_@stack_corruption_msg db \"Stack corruption\",10,0\n");
+
     for (i = 0; i < code->opcode_count; i++) {
         if (code->opcodes[i]->type == ACT_DATA) {
             print_opcode(code->opcodes[i]);
