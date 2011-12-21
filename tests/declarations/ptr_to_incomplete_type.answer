@@ -1,0 +1,4 @@
+tag "node" is struct node defined as {
+   left is field of type <pointer to struct node>
+   right is field of type <pointer to struct node>
+}

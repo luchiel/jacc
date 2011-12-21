@@ -19,6 +19,8 @@
 #define PARSE_CHECK(expr) if ((expr) == NULL) return NULL;
 #define PARSE(target, rule, ...) { (target) = parse_##rule(__VA_ARGS__); PARSE_CHECK(target); }
 
+#define HAS_FLAG(expr, flag) (((expr) & (flag)) == (flag))
+
 #define SYMTABLE_MAX_DEPTH 255
 #define SYMTABLE_DEFAULT_SIZE 16
 
@@ -1474,7 +1476,6 @@ static struct symbol *parse_structured_specifier_start(enum symbol_type symbol_t
 static struct symbol *parse_struct_or_union_specifier()
 {
     struct symbol *symbol = parse_structured_specifier_start(token.type == TOK_STRUCT ? ST_STRUCT : ST_UNION, "@struct");
-    symbol->flags |= SF_INCOMPLETE;
     enum declaration_type old_decl_type = cur_decl_type;
     if (accept(TOK_LBRACE)) {
         push_symtable();
@@ -1678,6 +1679,11 @@ static struct symbol *parse_declaration()
         }
         symbol->name = symbol_name;
 
+        if (!is_typedef && HAS_FLAG(symbol->base_type->flags, SF_INCOMPLETE)) {
+            parser_error("variable, field or function has incomplete type");
+            return NULL;
+        }
+
         if (symbol->name == NULL) {
             parser_error("expected non-abstract declarator");
             return NULL;
@@ -1813,7 +1819,6 @@ extern symtable_t parser_parse()
     while (!accept(TOK_EOS)) {
         cur_decl_type = DT_GLOBAL;
         if (parse_declaration() == NULL) {
-            printf("FAIL on line %d\n", token.line);
             pull_clear(parser_pull);
             return NULL;
         }
