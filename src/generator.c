@@ -15,12 +15,12 @@ struct asm_command commands[] = {
 };
 
 struct asm_operand registers[] = {
-#define REGISTER(name, varname, repr) { AOT_REGISTER, {}},
+#define REGISTER(name, varname) { AOT_REGISTER, {}},
 #include "registers.def"
 #undef REGISTER
 };
 
-#define REGISTER(name, varname, repr) struct asm_operand * varname = & registers[ART_##name];
+#define REGISTER(name, varname) struct asm_operand * varname = & registers[ART_##name];
 #include "registers.def"
 #undef REGISTER
 
@@ -670,7 +670,7 @@ static void generate_function(struct symbol *func)
 
 extern void generator_init()
 {
-#define REGISTER(name, varname, repr) registers[ART_##name].data.register_name = repr;
+#define REGISTER(name, varname) registers[ART_##name].data.register_name = #varname;
 #include "registers.def"
 #undef REGISTER
 
