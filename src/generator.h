@@ -74,10 +74,15 @@ struct asm_opcode {
     } data;
 };
 
+struct asm_opcode_list {
+    struct asm_opcode **data;
+    int count;
+    int size;
+};
+
 typedef struct code {
-    struct asm_opcode **opcodes;
-    int opcode_count;
-    int opcode_list_size;
+    struct asm_opcode_list opcode_list;
+    struct asm_opcode_list data_list;
 } *code_t;
 
 extern void generator_init();

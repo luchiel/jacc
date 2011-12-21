@@ -104,21 +104,21 @@ static void print_opcode(struct asm_opcode *opcode)
     }
 }
 
-static void add_opcode(struct asm_opcode *opcode)
+static void add_opcode(struct asm_opcode_list *list, struct asm_opcode *opcode)
 {
     int new_size = 0;
-    if (cur_code->opcode_count == 0) {
+    if (list->count == 0) {
         new_size = 64;
-    } else if (cur_code->opcode_count + 1 > cur_code->opcode_list_size) {
-        new_size = cur_code->opcode_list_size * 2;
+    } else if (list->count + 1 > list->size) {
+        new_size = list->size * 2;
     }
 
     if (new_size) {
-        cur_code->opcode_list_size = new_size;
-        cur_code->opcodes = jacc_realloc(cur_code->opcodes, new_size * sizeof(*cur_code->opcodes));
+        list->size = new_size;
+        list->data = jacc_realloc(list->data, new_size * sizeof(*list->data));
     }
-    cur_code->opcodes[cur_code->opcode_count] = opcode;
-    cur_code->opcode_count++;
+    list->data[list->count] = opcode;
+    list->count++;
 }
 
 static void emit(enum asm_command_type cmd, ...)
@@ -135,7 +135,7 @@ static void emit(enum asm_command_type cmd, ...)
     }
     va_end(args);
 
-    add_opcode(opcode);
+    add_opcode(&cur_code->opcode_list, opcode);
 }
 
 static void emit_text(char *format, ...)
@@ -150,7 +150,7 @@ static void emit_text(char *format, ...)
     va_end(args);
 
     opcode->data.text = buffer;
-    add_opcode(opcode);
+    add_opcode(&cur_code->opcode_list, opcode);
 }
 
 static void emit_label(label_t label)
@@ -163,7 +163,7 @@ static void emit_data(char *data)
     struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
     opcode->type = ACT_DATA;
     opcode->data.text = data;
-    add_opcode(opcode);
+    add_opcode(&cur_code->data_list, opcode);
 }
 
 static struct asm_operand *constant(int value)
@@ -826,9 +826,7 @@ extern void generator_destroy()
 extern code_t generator_process(symtable_t symtable)
 {
     code_t code = jacc_malloc(sizeof(*code));
-    code->opcode_count = 0;
-    code->opcode_list_size = 0;
-    code->opcodes = NULL;
+    memset(code, 0, sizeof(*code));
 
     cur_code = code;
 
@@ -848,20 +846,16 @@ extern void generator_print_code(code_t code)
     printf("format PE console\nentry _main\n");
     printf("include '%%fasm%%/include/win32a.inc'\n\n");
     printf("section '.text' code executable\n");
-    for (i = 0; i < code->opcode_count; i++) {
-        if (code->opcodes[i]->type != ACT_DATA) {
-            print_opcode(code->opcodes[i]);
-        }
+    for (i = 0; i < code->opcode_list.count; i++) {
+        print_opcode(code->opcode_list.data[i]);
     }
 
     printf("section '.data' data readable writable\n\n");
     printf("_@main_esp dd ?\n");
     printf("_@stack_corruption_msg db \"Stack corruption\",10,0\n");
 
-    for (i = 0; i < code->opcode_count; i++) {
-        if (code->opcodes[i]->type == ACT_DATA) {
-            print_opcode(code->opcodes[i]);
-        }
+    for (i = 0; i < code->data_list.count; i++) {
+        print_opcode(code->data_list.data[i]);
     }
 
     printf("\nsection '.idata' data readable import\n");
@@ -909,17 +903,22 @@ extern void generator_free_opcode_data(struct asm_opcode *opcode)
     }
 }
 
+static void free_opcode_list_data(struct asm_opcode_list *list)
+{
+    int i;
+    for (i = 0; i < list->count; i++) {
+        generator_free_opcode_data(list->data[i]);
+        jacc_free(list->data[i]);
+    }
+    jacc_free(list->data);
+}
+
 extern void generator_free_code(code_t code)
 {
     if (code == NULL) {
         return;
     }
-
-    int i;
-    for (i = 0; i < code->opcode_count; i++) {
-        generator_free_opcode_data(code->opcodes[i]);
-        jacc_free(code->opcodes[i]);
-    }
-    jacc_free(code->opcodes);
+    free_opcode_list_data(&code->opcode_list);
+    free_opcode_list_data(&code->data_list);
     jacc_free(code);
 }
