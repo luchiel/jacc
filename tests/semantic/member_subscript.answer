@@ -1,0 +1,64 @@
+tag "S" is struct S defined as {
+   a is field of type <array [
+      (10)
+   ] of int>
+   y is field of type <float>
+}
+
+x is variable of type <array [
+   (5)
+] of struct S>
+
+main is function returning <int> defined as {
+   (list)
+   [
+      y is variable of type <struct S>
+   ]
+    +-(=) -> <int>
+       |
+       +-(*) -> <int>
+       |  |
+       |  +-(+) -> <array [
+       |          (10)
+       |       ] of int>
+       |     |
+       |     +-(.) -> <array [
+       |     |       (10)
+       |     |    ] of int>
+       |     |  |
+       |     |  +-(var y) -> <struct S>
+       |     |  |
+       |     |  +-(ident a) -> <field of type <array [
+       |     |          (10)
+       |     |       ] of int>>
+       |     |
+       |     +-(2)
+       |
+       +-(*) -> <int>
+          |
+          +-(+) -> <array [
+                  (10)
+               ] of int>
+             |
+             +-(.) -> <array [
+             |       (10)
+             |    ] of int>
+             |  |
+             |  +-(*) -> <struct S>
+             |  |  |
+             |  |  +-(+) -> <pointer to struct S>
+             |  |     |
+             |  |     +-(&) -> <pointer to struct S>
+             |  |     |  |
+             |  |     |  +-(var x) -> <array [
+             |  |     |          (5)
+             |  |     |       ] of struct S>
+             |  |     |
+             |  |     +-(3)
+             |  |
+             |  +-(ident a) -> <field of type <array [
+             |          (10)
+             |       ] of int>>
+             |
+             +-(5)
+}

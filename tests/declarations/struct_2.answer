@@ -1,21 +1,21 @@
 tag "@struct1" is struct @struct1 defined as {
-   u is variable of type <int>
+   u is field of type <int>
 }
 z is variable of type <struct @struct1>
 
 tag "@struct2" is struct @struct2 defined as {
-   t is variable of type <char>
+   t is field of type <char>
 }
 
 tag "@struct3" is struct @struct3 defined as {
    tag "@struct4" is struct @struct4 defined as {
-      a is variable of type <int>
+      a is field of type <int>
 
       tag "@struct5" is struct @struct5 defined as {
-         i is variable of type <char>
+         i is field of type <char>
       }
-      s3 is variable of type <struct @struct5>
+      s3 is field of type <struct @struct5>
    }
-   s2 is variable of type <struct @struct4>
+   s2 is field of type <struct @struct4>
 }
 s1 is variable of type <struct @struct3>

@@ -1,9 +1,9 @@
 tag "a" is union a defined as {
-   a is variable of type <int>
-   b is variable of type <int>
-   c is variable of type <int>
+   a is field of type <int>
+   b is field of type <int>
+   c is field of type <int>
 }
 
 tag "b" is union b defined as {
-   a is variable of type <pointer to union a>
+   a is field of type <pointer to union a>
 }

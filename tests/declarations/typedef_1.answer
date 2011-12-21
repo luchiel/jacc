@@ -5,11 +5,11 @@ cool_int_ary is alias for type <array [
 ] of int>
 
 tag "@struct1" is struct @struct1 defined as {
-   u is variable of type <int>
+   u is field of type <int>
 }
 my_struct is alias for type <struct @struct1>
 
 tag "z" is struct z defined as {
-   u is variable of type <int>
+   u is field of type <int>
 }
 r is alias for type <struct z>

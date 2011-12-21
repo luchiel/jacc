@@ -197,6 +197,7 @@ static int is_var_symbol(struct symbol *symbol)
     switch (symbol->type) {
     case ST_VARIABLE:
     case ST_GLOBAL_VARIABLE:
+    case ST_FIELD:
     case ST_PARAMETER:
         return 1;
     }
@@ -297,6 +298,7 @@ static struct symbol *get_callable(struct symbol *symbol)
         return symbol;
     case ST_VARIABLE:
     case ST_GLOBAL_VARIABLE:
+    case ST_FIELD:
     case ST_PARAMETER:
         if (symbol->base_type->type == ST_POINTER
                 && symbol->base_type->base_type->type == ST_FUNCTION)
@@ -312,9 +314,12 @@ static enum symbol_type get_generic_type(struct symbol *symbol)
 {
     enum symbol_type result = resolve_alias(symbol)->type;
     switch (result) {
-    case ST_PARAMETER: return ST_VARIABLE;
-    case ST_GLOBAL_VARIABLE: return ST_VARIABLE;
-    case ST_ARRAY: return ST_POINTER;
+    case ST_PARAMETER:
+    case ST_GLOBAL_VARIABLE:
+    case ST_FIELD:
+        return ST_VARIABLE;
+    case ST_ARRAY:
+        return ST_POINTER;
     }
     return result;
 }
@@ -660,7 +665,7 @@ static int process_member_node(struct node *node)
 
     const char *field_name = ((struct string_node*)node->ops[1])->value;
     struct symbol *field = symtable_get(obj->symtable, field_name, SC_NAME);
-    if (field == NULL || field->type != ST_VARIABLE) {
+    if (field == NULL || field->type != ST_FIELD) {
         parser_error("expected valid field name");
         return 0;
     }
@@ -1469,15 +1474,20 @@ static struct symbol *parse_structured_specifier_start(enum symbol_type symbol_t
 static struct symbol *parse_struct_or_union_specifier()
 {
     struct symbol *symbol = parse_structured_specifier_start(token.type == TOK_STRUCT ? ST_STRUCT : ST_UNION, "@struct");
+    symbol->flags |= SF_INCOMPLETE;
+    enum declaration_type old_decl_type = cur_decl_type;
     if (accept(TOK_LBRACE)) {
         push_symtable();
         symbol->symtable = get_current_symtable();
 
         do {
             struct symbol *result;
-            PARSE(result, declaration, DT_STRUCT)
+            cur_decl_type = DT_STRUCT;
+            PARSE(result, declaration)
+            cur_decl_type = old_decl_type;
         } while (!accept(TOK_RBRACE));
         pop_symtable();
+        symbol->flags &= ~SF_INCOMPLETE;
 
         symtable_iter_t iter = symtable_first(symbol->symtable);
         for (; iter != NULL; iter = symtable_iter_next(iter)) {
@@ -1657,6 +1667,8 @@ static struct symbol *parse_declaration()
             enum symbol_type type = ST_VARIABLE;
             if (is_typedef) {
                 type = ST_TYPE_ALIAS;
+            } else if (cur_decl_type == DT_STRUCT) {
+                type = ST_FIELD;
             } else if (cur_decl_type == DT_GLOBAL) {
                 type = ST_GLOBAL_VARIABLE;
             }

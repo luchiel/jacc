@@ -9,6 +9,7 @@
 enum symbol_type {
     ST_VARIABLE,
     ST_GLOBAL_VARIABLE,
+    ST_FIELD,
     ST_FUNCTION,
     ST_SCALAR_TYPE,
     ST_TYPE_ALIAS,

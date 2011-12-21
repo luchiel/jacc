@@ -2,18 +2,18 @@ member_test is function returning nothing defined as {
    (list)
    [
       tag "@struct1" is struct @struct1 defined as {
-         a is variable of type <int>
-         b is variable of type <int>
-         c is variable of type <int>
+         a is field of type <int>
+         b is field of type <int>
+         c is field of type <int>
          tag "@struct2" is struct @struct2 defined as {
-            c is variable of type <char>
+            c is field of type <char>
          }
-         s is variable of type <struct @struct2>
+         s is field of type <struct @struct2>
          tag "@struct3" is union @struct3 defined as {
-            a is variable of type <int>
-            t is variable of type <char>
+            a is field of type <int>
+            t is field of type <char>
          }
-         u is variable of type <union @struct3>
+         u is field of type <union @struct3>
       }
       t is variable of type <struct @struct1>
       r is variable of type <pointer to struct @struct1>
@@ -22,7 +22,7 @@ member_test is function returning nothing defined as {
        |
        +-(var t) -> <struct @struct1>
        |
-       +-(ident a) -> <int>
+       +-(ident a) -> <field of type <int>>
 
     +-(.) -> <char>
        |
@@ -30,9 +30,9 @@ member_test is function returning nothing defined as {
        |  |
        |  +-(var t) -> <struct @struct1>
        |  |
-       |  +-(ident s) -> <struct @struct2>
+       |  +-(ident s) -> <field of type <struct @struct2>>
        |
-       +-(ident c) -> <char>
+       +-(ident c) -> <field of type <char>>
 
     +-(.) -> <int>
        |
@@ -40,9 +40,9 @@ member_test is function returning nothing defined as {
        |  |
        |  +-(var t) -> <struct @struct1>
        |  |
-       |  +-(ident u) -> <union @struct3>
+       |  +-(ident u) -> <field of type <union @struct3>>
        |
-       +-(ident a) -> <int>
+       +-(ident a) -> <field of type <int>>
 
     +-(.) -> <int>
        |
@@ -50,7 +50,7 @@ member_test is function returning nothing defined as {
        |  |
        |  +-(var r) -> <pointer to struct @struct1>
        |
-       +-(ident c) -> <int>
+       +-(ident c) -> <field of type <int>>
 
     +-(.) -> <char>
        |
@@ -60,9 +60,9 @@ member_test is function returning nothing defined as {
        |  |  |
        |  |  +-(var r) -> <pointer to struct @struct1>
        |  |
-       |  +-(ident s) -> <struct @struct2>
+       |  +-(ident s) -> <field of type <struct @struct2>>
        |
-       +-(ident c) -> <char>
+       +-(ident c) -> <field of type <char>>
 
     +-(.) -> <int>
        |
@@ -72,7 +72,7 @@ member_test is function returning nothing defined as {
        |  |  |
        |  |  +-(var r) -> <pointer to struct @struct1>
        |  |
-       |  +-(ident u) -> <union @struct3>
+       |  +-(ident u) -> <field of type <union @struct3>>
        |
-       +-(ident a) -> <int>
+       +-(ident a) -> <field of type <int>>
 }

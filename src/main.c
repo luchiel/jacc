@@ -164,7 +164,8 @@ void print_symbol(struct symbol *symbol, int level, int depth)
         break;
     case ST_VARIABLE:
     case ST_GLOBAL_VARIABLE:
-        printf("variable of type <");
+    case ST_FIELD:
+        printf("%s of type <", symbol->type == ST_FIELD ? "field" : "variable");
         print_symbol(symbol->base_type, level, depth + 1);
         printf(">");
         if (symbol->expr != NULL) {
