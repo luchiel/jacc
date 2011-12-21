@@ -1684,6 +1684,11 @@ static struct symbol *parse_declaration()
             return NULL;
         }
 
+        if (is_var_symbol(symbol) && symbol->base_type == &sym_void) {
+            parser_error("variable or field declared void");
+            return NULL;
+        }
+
         if (symbol->name == NULL) {
             parser_error("expected non-abstract declarator");
             return NULL;
