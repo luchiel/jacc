@@ -40,7 +40,7 @@ struct symbol {
     int size;
     int offset;
     int locals_size;
-    const char *label;
+    int label;
 };
 
 typedef const char *symtable_key_t;

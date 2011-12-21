@@ -62,7 +62,10 @@ static int print_operand(struct asm_operand *op)
         printf("%d", op->data.value);
         break;
     case AOT_LABEL:
-        printf("_%s", op->data.label);
+        printf("_@%d", op->data.label);
+        break;
+    case AOT_TEXT_LABEL:
+        printf("_%s", op->data.text_label);
         break;
     case AOT_SIZE:
         switch (op->data.size.size) {
@@ -150,9 +153,9 @@ static void emit_text(char *format, ...)
     add_opcode(opcode);
 }
 
-static void emit_label(char *name)
+static void emit_label(label_t label)
 {
-    emit_text("_%s:", name);
+    emit_text("_@%d:", label);
 }
 
 static void emit_data(char *data)
@@ -171,11 +174,19 @@ static struct asm_operand *constant(int value)
     return operand;
 }
 
-static struct asm_operand *label(const char *label)
+static struct asm_operand *label(label_t label)
 {
     struct asm_operand *operand = jacc_malloc(sizeof(*operand));
     operand->type = AOT_LABEL;
     operand->data.label = label;
+    return operand;
+}
+
+static struct asm_operand *text_label(const char *label)
+{
+    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
+    operand->type = AOT_TEXT_LABEL;
+    operand->data.text_label = label;
     return operand;
 }
 
@@ -209,12 +220,9 @@ static struct asm_operand *dword(struct asm_operand *subop)
     return size_spec(AOS_DWORD, subop);
 }
 
-static char *gen_label()
+static label_t gen_label()
 {
-    char *buf = jacc_malloc(8);
-    sprintf(buf, "@%d", label_counter);
-    label_counter++;
-    return buf;
+    return ++label_counter;
 }
 
 static void generate_expr(struct node *expr, int ret);
@@ -231,10 +239,10 @@ static struct asm_operand *lvalue(struct node *expr)
         case ST_VARIABLE:
             return dword(memory(ebp, constant(var->symbol->offset - 4), NULL, 1));
         case ST_GLOBAL_VARIABLE:
-            if (var->symbol->label == NULL) {
+            if (var->symbol->label == 0) {
                 var->symbol->label = gen_label();
                 char *buf = jacc_malloc(30);
-                sprintf(buf, "_%s db %d dup(0)", var->symbol->label, var->symbol->size);
+                sprintf(buf, "_@%d db %d dup(0)", var->symbol->label, var->symbol->size);
                 emit_data(buf);
             }
             return dword(deref(label(var->symbol->label)));
@@ -272,7 +280,7 @@ static void generate_int_cmp(enum asm_command_type cmd)
 
 static void generate_int_logical_op(enum asm_command_type cmd)
 {
-    char *lbl = gen_label();
+    label_t lbl = gen_label();
     emit(ASM_XOR, ecx, ecx);
     emit(ASM_TEST, eax, eax);
     emit(cmd, label(lbl));
@@ -371,7 +379,7 @@ static void generate_statement(struct node *expr)
     switch (expr->type) {
     case NT_IF:
     {
-        char *l1 = gen_label(), *l2 = gen_label();
+        label_t l1 = gen_label(), l2 = gen_label();
         generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
         emit(ASM_TEST, eax, eax);
@@ -385,7 +393,7 @@ static void generate_statement(struct node *expr)
     }
     case NT_WHILE:
     {
-        char *l1 = gen_label(), *l2 = gen_label();
+        label_t l1 = gen_label(), l2 = gen_label();
         emit_label(l1);
         generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
@@ -398,7 +406,7 @@ static void generate_statement(struct node *expr)
     }
     case NT_DO_WHILE:
     {
-        char *l1 = gen_label();
+        label_t l1 = gen_label();
         emit_label(l1);
         generate_expr(expr->ops[0], 0);
         generate_expr(expr->ops[1], 1);
@@ -409,7 +417,7 @@ static void generate_statement(struct node *expr)
     }
     case NT_FOR:
     {
-        char *l1 = gen_label(), *l2 = gen_label();
+        label_t l1 = gen_label(), l2 = gen_label();
         generate_expr(expr->ops[0], 0);
         emit_label(l1);
         generate_expr(expr->ops[1], 1);
@@ -427,13 +435,13 @@ static void generate_statement(struct node *expr)
     }
 }
 
-static char *emit_data_array(const char *data_ptr, int size)
+static label_t emit_data_array(const char *data_ptr, int size)
 {
-    char *str_label = gen_label();
+    label_t str_label = gen_label();
     char *buf = jacc_malloc(15 + 4 * size);
     char *ptr = buf;
 
-    ptr += sprintf(ptr, "_%s db ", str_label);
+    ptr += sprintf(ptr, "_@%d db ", str_label);
     int i = 0;
     for (; i < size; i++) {
         ptr += sprintf(ptr, i == 0 ? "%u" : ",%u", data_ptr[i]);
@@ -469,7 +477,7 @@ static void generate_expr(struct node *expr, int ret)
             generate_expr(list->items[i], 1);
             size += list->items[i]->type_sym->size;
         }
-        struct asm_operand *target = label(expr->ops[0]->type_sym->name);
+        struct asm_operand *target = text_label(expr->ops[0]->type_sym->name);
         if ((expr->ops[0]->type_sym->flags & SF_EXTERN) == SF_EXTERN) {
             target = deref(target);
         }
@@ -479,8 +487,8 @@ static void generate_expr(struct node *expr, int ret)
     }
     case NT_STRING:
     {
-        const char *str = ((struct string_node*)expr)->value;
-        char *str_label = emit_data_array(str, strlen(str) + 1);
+        char *str = ((struct string_node*)expr)->value;
+        label_t str_label = emit_data_array(str, strlen(str) + 1);
         if (ret) emit(ASM_PUSH, label(str_label));
         return;
     }
@@ -488,7 +496,7 @@ static void generate_expr(struct node *expr, int ret)
     {
         float value = ((struct double_node*)expr)->value;
         emit_text("; %f", value);
-        char *data_label = emit_data_array((char *)&value, 4);
+        label_t data_label = emit_data_array((char *)&value, 4);
         if (ret) emit(ASM_PUSH, dword(deref(label(data_label))));
         return;
     }
@@ -498,7 +506,7 @@ static void generate_expr(struct node *expr, int ret)
         return;
     case NT_TERNARY:
     {
-        char *l1 = gen_label(), *l2 = gen_label();
+        label_t l1 = gen_label(), l2 = gen_label();
         generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
         emit(ASM_TEST, eax, eax);
@@ -595,7 +603,7 @@ static void generate_function(struct symbol *func)
 
     if (is_main) {
         emit(ASM_PUSH, constant(0));
-        emit(ASM_CALL, deref(label("ExitProcess")));
+        emit(ASM_CALL, deref(text_label("ExitProcess")));
     } else {
         emit(ASM_RET);
     }

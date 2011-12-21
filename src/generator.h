@@ -25,6 +25,7 @@ enum asm_operand_type {
     AOT_MEMORY,
     AOT_CONSTANT,
     AOT_LABEL,
+    AOT_TEXT_LABEL,
     AOT_SIZE,
 };
 
@@ -34,6 +35,8 @@ enum asm_operand_size {
     AOS_DWORD,
     AOS_QWORD,
 };
+
+typedef int label_t;
 
 struct asm_operand {
     enum asm_operand_type type;
@@ -47,7 +50,8 @@ struct asm_operand {
             struct asm_operand *subop;
         } size;
         const char *register_name;
-        const char *label;
+        label_t label;
+        const char *text_label;
         int value;
     } data;
 };
