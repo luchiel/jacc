@@ -311,7 +311,6 @@ static void generate_unary_int_op(struct node *expr, int ret)
     case NT_IDENTITY: break;
     case NT_PREFIX_INC:
     case NT_PREFIX_DEC:
-        emit_text("; 1");
         generate_lvalue(expr->ops[0]);
         emit(ASM_POP, ebx);
         if (expr->type == NT_PREFIX_INC)
@@ -319,7 +318,6 @@ static void generate_unary_int_op(struct node *expr, int ret)
         else
             emit(ASM_DEC, dword(deref(ebx)));
         if (ret) emit(ASM_MOV, eax, dword(deref(ebx)));
-        emit_text("; 2");
         break;
     case NT_POSTFIX_INC:
     case NT_POSTFIX_DEC:
@@ -500,7 +498,6 @@ static void generate_expr(struct node *expr, int ret)
     case NT_DOUBLE:
     {
         double value = ((struct double_node*)expr)->value;
-        emit_text("; %lf", value);
         label_t data_label = emit_data_array((char *)&value, 8);
         if (ret) {
             emit(ASM_SUB, esp, constant(8));
