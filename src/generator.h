@@ -10,7 +10,7 @@ enum asm_command_type {
 };
 
 enum asm_register_type {
-#define REGISTER(name, repr) ART_##name,
+#define REGISTER(name, varname, repr) ART_##name,
 #include "registers.def"
 #undef REGISTER
 };

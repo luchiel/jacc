@@ -1,0 +1,9 @@
+void main()
+{
+    printf("%lf\n", 1.+2.);
+    printf("%lf\n", 0.888888+0.111112);
+    printf("%lf\n", 1.-2.);
+    printf("%lf\n", 1.*2.);
+    printf("%lf\n", 7./2.);
+    printf("%lf\n", 1./3.);
+}

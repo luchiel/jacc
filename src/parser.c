@@ -234,8 +234,6 @@ static int is_struct_type(struct symbol *symbol)
     return 0;
 }
 
-static int is_compatible_types(struct symbol *s1, struct symbol *s2);
-
 static int is_compatible_symtable(symtable_t s1, symtable_t s2)
 {
     if (symtable_size(s1) != symtable_size(s2)) {
@@ -326,7 +324,7 @@ static enum symbol_type get_generic_type(struct symbol *symbol)
     return result;
 }
 
-static int is_compatible_types(struct symbol *s1, struct symbol *s2)
+int is_compatible_types(struct symbol *s1, struct symbol *s2)
 {
     if (s1 == NULL || s2 == NULL) {
         return 0;

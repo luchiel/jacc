@@ -15,12 +15,12 @@ struct asm_command commands[] = {
 };
 
 struct asm_operand registers[] = {
-#define REGISTER(name, repr) { AOT_REGISTER, {}},
+#define REGISTER(name, varname, repr) { AOT_REGISTER, {}},
 #include "registers.def"
 #undef REGISTER
 };
 
-#define REGISTER(name, repr) struct asm_operand * repr = & registers[ART_##name];
+#define REGISTER(name, varname, repr) struct asm_operand * varname = & registers[ART_##name];
 #include "registers.def"
 #undef REGISTER
 
@@ -377,6 +377,30 @@ static void generate_binary_int_op(struct node *expr, int ret)
     if (ret) emit(ASM_PUSH, eax);
 }
 
+static void generate_binary_double_op(struct node *expr, int ret)
+{
+    generate_expr(expr->ops[0], 1);
+    emit(ASM_FLD, qword(deref(esp)));
+    generate_expr(expr->ops[1], 1);
+    emit(ASM_FLD, qword(deref(esp)));
+
+    emit(ASM_ADD, esp, constant(ret ? 8 : 16));
+
+    switch (expr->type) {
+    case NT_ADD: emit(ASM_FADDP); break;
+    case NT_SUB: emit(ASM_FSUBP); break;
+    case NT_MUL: emit(ASM_FMULP); break;
+    case NT_DIV: emit(ASM_FDIVP); break;
+    default:
+        emit_text("; unknown binary node %s", parser_node_info(expr)->repr);
+    }
+
+    if (ret) {
+        emit(ASM_FSTP, qword(deref(esp)));
+        emit(ASM_FFREEP, st0);
+    }
+}
+
 static void generate_statement(struct node *expr)
 {
     switch (expr->type) {
@@ -571,12 +595,23 @@ static void generate_expr(struct node *expr, int ret)
     }
     }
 
-    switch (parser_node_info(expr)->cat) {
-    case NC_UNARY: generate_unary_int_op(expr, ret); return;
-    case NC_BINARY: generate_binary_int_op(expr, ret); return;
-    case NC_STATEMENT: generate_statement(expr); return;
+    enum node_category cat = parser_node_info(expr)->cat;
+    switch (cat) {
+    case NC_STATEMENT:
+        generate_statement(expr);
+        return;
+    case NC_UNARY:
+        generate_unary_int_op(expr, ret);
+        return;
+    case NC_BINARY:
+        if (is_compatible_types(expr->ops[0]->type_sym, &sym_int) || expr->ops[0]->type_sym->type == ST_POINTER) {
+            generate_binary_int_op(expr, ret);
+            return;
+        } else if (expr->ops[0]->type_sym == &sym_double) {
+            generate_binary_double_op(expr, ret);
+            return;
+        }
     }
-
     emit_text("; unknown node %s", parser_node_info(expr)->repr);
 }
 
@@ -619,7 +654,7 @@ static void generate_function(struct symbol *func)
 
 extern void generator_init()
 {
-#define REGISTER(name, repr) registers[ART_##name].data.register_name = #repr;
+#define REGISTER(name, varname, repr) registers[ART_##name].data.register_name = repr;
 #include "registers.def"
 #undef REGISTER
 

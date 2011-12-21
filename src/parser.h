@@ -104,6 +104,8 @@ extern void parser_flags_set(int new_flags);
 extern int parser_flags_get();
 
 extern int is_ptr_type(struct symbol *symbol);
+extern int is_compatible_types(struct symbol *s1, struct symbol *s2);
 extern struct symbol *resolve_alias(struct symbol *symbol);
 
+extern struct symbol sym_null, sym_void, sym_int, sym_double, sym_char, sym_char_ptr, sym_printf;
 #endif

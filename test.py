@@ -8,11 +8,11 @@ import time
 jacc_cmd = lambda x: 'jacc %s "%%(input)s" > "%%(output)s" 2>&1' % x
 
 tests = {
-    'lexer': jacc_cmd('lex'),
-    'expressions': jacc_cmd('parse_expr'),
-    'statements': jacc_cmd('parse_stmt'),
-    'declarations': jacc_cmd('parse'),
-    'semantic': jacc_cmd('parse'),
+    #'lexer': jacc_cmd('lex'),
+    #'expressions': jacc_cmd('parse_expr'),
+    #'statements': jacc_cmd('parse_stmt'),
+    #'declarations': jacc_cmd('parse'),
+    #'semantic': jacc_cmd('parse'),
     'generator': 'jacc compile "%(input)s" > "%(asm_output)s" 2>&1 && fasm "%(asm_output)s" "%(exe_output)s" 2>&1 > "%(output)s" && "%(exe_output)s" > "%(output)s"',
 }
 
