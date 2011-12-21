@@ -377,6 +377,16 @@ static void generate_binary_int_op(struct node *expr, int ret)
     if (ret) emit(ASM_PUSH, eax);
 }
 
+static void generate_double_cmp(enum asm_command_type cmd)
+{
+    emit(ASM_ADD, esp, constant(8));
+    emit(ASM_XOR, ecx, ecx);
+    emit(ASM_FCOMIP, st1);
+    emit(cmd, cl);
+    emit(ASM_PUSH, ecx);
+    emit(ASM_FFREEP, st0);
+}
+
 static void generate_binary_double_op(struct node *expr, int ret)
 {
     generate_expr(expr->ops[0], 1);
@@ -391,14 +401,20 @@ static void generate_binary_double_op(struct node *expr, int ret)
     case NT_SUB: emit(ASM_FSUBP); break;
     case NT_MUL: emit(ASM_FMULP); break;
     case NT_DIV: emit(ASM_FDIVP); break;
+    case NT_EQ: generate_double_cmp(ASM_SETE); return;
+    case NT_NE: generate_double_cmp(ASM_SETNE); return;
+    case NT_LE: generate_double_cmp(ASM_SETAE); return;
+    case NT_LT: generate_double_cmp(ASM_SETA); return;
+    case NT_GE: generate_double_cmp(ASM_SETBE); return;
+    case NT_GT: generate_double_cmp(ASM_SETB); return;
     default:
         emit_text("; unknown binary node %s", parser_node_info(expr)->repr);
     }
 
     if (ret) {
         emit(ASM_FSTP, qword(deref(esp)));
-        emit(ASM_FFREEP, st0);
     }
+    emit(ASM_FFREEP, st0);
 }
 
 static void generate_statement(struct node *expr)
