@@ -678,8 +678,23 @@ static void generate_expr(struct node *expr, int ret)
         return;
     }
     case NT_CAST:
+    {
+        struct symbol *ret_type = resolve_alias(expr->type_sym), *s0 = resolve_alias(expr->ops[0]->type_sym);
         generate_expr(expr->ops[0], ret);
+        if (ret) {
+            if ((is_compatible_types(s0, &sym_int) || is_ptr_type(s0)) && ret_type == &sym_double) {
+                emit(ASM_FILD, dword(deref(esp)));
+                emit(ASM_SUB, esp, constant(4));
+                emit(ASM_FSTP, qword(deref(esp)));
+            } else if (s0 == &sym_double && (is_compatible_types(ret_type, &sym_int) || is_ptr_type(ret_type))) {
+                emit(ASM_FLD, qword(deref(esp)));
+                emit(ASM_FISTTP, dword(memory(esp, constant(4), NULL, 0)));
+                emit(ASM_ADD, esp, constant(4));
+            }
+        }
         return;
+    }
+
     case NT_REFERENCE:
         emit(ASM_LEA, eax, lvalue(expr->ops[0]));
         if (ret) emit(ASM_PUSH, eax);
