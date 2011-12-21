@@ -1,0 +1,3 @@
+tag "t" is struct t defined as {
+   ptr is field of type <pointer to void>
+}

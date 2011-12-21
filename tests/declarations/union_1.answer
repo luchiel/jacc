@@ -1,0 +1,9 @@
+tag "a" is union a defined as {
+   a is field of type <int>
+   b is field of type <int>
+   c is field of type <int>
+}
+
+tag "b" is union b defined as {
+   a is field of type <pointer to union a>
+}

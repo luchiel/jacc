@@ -1,0 +1,24 @@
+tag "a" is enum a
+tag "b" is enum b
+
+A is enum const of type <enum b> = (
+   (0)
+)
+B is enum const of type <enum b> = (
+   (1)
+)
+C is enum const of type <enum b> = (
+   (2)
+)
+
+tag "c" is enum c
+
+i is enum const of type <enum c> = (
+   (0)
+)
+j is enum const of type <enum c> = (
+   (1)
+)
+k is enum const of type <enum c> = (
+   (2)
+)

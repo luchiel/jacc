@@ -1,0 +1,21 @@
+test_unary is function returning <int> defined as {
+   (list)
+   [
+      a is variable of type <int>
+   ]
+    +-(*) -> <int>
+       |
+       +-(cast to <pointer to int>)
+          |
+          +-(0)
+
+    +-(&) -> <pointer to int>
+       |
+       +-(var a) -> <int>
+
+    +-(*) -> <int>
+       |
+       +-(&) -> <pointer to int>
+          |
+          +-(var a) -> <int>
+}

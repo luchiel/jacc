@@ -1,0 +1,35 @@
+comma is function returning nothing defined as {
+   (list)
+    |
+    +-(,) -> <int>
+    |  |
+    |  +-(1)
+    |  |
+    |  +-(2)
+    |
+    +-(,) -> <double>
+    |  |
+    |  +-(1)
+    |  |
+    |  +-(2.000000)
+    |
+    +-(,) -> <int>
+    |  |
+    |  +-(1.000000)
+    |  |
+    |  +-(2)
+    |
+    +-(,) -> <double>
+       |
+       +-(,) -> <char>
+       |  |
+       |  +-(1)
+       |  |
+       |  +-(cast to <char>)
+       |     |
+       |     +-(2)
+       |
+       +-(cast to <double>)
+          |
+          +-(3)
+}

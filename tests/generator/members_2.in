@@ -1,0 +1,9 @@
+void main()
+{
+	struct {
+		int a, b;
+	} u, *j = &u;
+	j->a = 7;
+	j->b = 3;
+	printf("%d %d\n", j->a, j->b);
+}

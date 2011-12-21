@@ -1,0 +1,8 @@
+union a;
+union a {
+    int a, b, c;
+};
+
+union b {
+    struct a *a;
+};

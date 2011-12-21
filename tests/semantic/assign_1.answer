@@ -1,0 +1,116 @@
+test_assign is function returning nothing defined as {
+   (list)
+   [
+      a is variable of type <int>
+      b is variable of type <int>
+   ]
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(=) -> <int>
+          |
+          +-(var b) -> <int>
+          |
+          +-(5)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(+) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(-) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(*) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(/) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(%) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(<<) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(>>) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(|) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(&) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+
+    +-(=) -> <int>
+       |
+       +-(var a) -> <int>
+       |
+       +-(^) -> <int>
+          |
+          +-(var a) -> <int>
+          |
+          +-(1)
+}

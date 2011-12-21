@@ -6,13 +6,20 @@
 #include "parser.h"
 #include "buffer.h"
 #include "log.h"
+#include "symtable.h"
+#include "generator.h"
 
 int show_indents[255];
+
+void print_node(struct node *node, int level, int root);
+void print_symtable(symtable_t symtable, int level);
 
 char *simple_commands[] = {
     "lex",
     "parse_expr",
     "parse_stmt",
+    "parse",
+    "compile",
 };
 
 void print_usage()
@@ -74,15 +81,15 @@ void print_indent(int level)
     }
 }
 
-void print_node_indent(int level)
+void print_node_indent(int level, int root)
 {
-    if (level > 0) {
+    if (!root && level > 0) {
         print_indent(level - 1);
         printf(" +-");
+    } else {
+        print_indent(level);
     }
 }
-
-void print_node(struct node *node, int level);
 
 void print_branch(struct node *node, int level, int last)
 {
@@ -91,44 +98,226 @@ void print_branch(struct node *node, int level, int last)
     if (last) {
         show_indents[level + 1] = 0;
     }
-    print_node(node, level + 1);
+    print_node(node, level + 1, 0);
 }
 
-void print_node(struct node *node, int level)
+void print_symbol(struct symbol *symbol, int level, int depth)
 {
-    struct node_info *info = parser_node_info(node);
-    int i;
-    show_indents[level + 1] = 1;
-
-    print_node_indent(level);
-    switch (info->cat) {
-    case NC_ATOM:
-        printf("(");
-        switch (node->type) {
-            case NT_INT:
-                printf("%d", ((struct int_node*)node)->value);
-                break;
-            case NT_DOUBLE:
-                printf("%f", ((struct double_node*)node)->value);
-                break;
-            case NT_STRING:
-                printf("\"%s\"", ((struct string_node*)node)->value);
-                break;
-            case NT_IDENT:
-                printf("ident %s", ((struct string_node*)node)->value);
-                break;
-            case NT_NOP:
-                printf("nop");
-                break;
+    switch (symbol->type) {
+    case ST_SCALAR_TYPE:
+        printf("%s", symbol->name);
+        break;
+    case ST_POINTER:
+        printf("pointer to ");
+        print_symbol(symbol->base_type, level, depth + 1);
+        break;
+    case ST_ARRAY:
+        printf("array");
+        if (symbol->expr != NULL) {
+            printf(" [\n");
+            show_indents[level + 1] = 0;
+            print_node(symbol->expr, level + 1, 1);
+            print_indent(level);
+            printf("]");
         }
-        printf(")\n");
+        printf(" of ");
+        print_symbol(symbol->base_type, level, depth + 1);
+        break;
+    case ST_FUNCTION:
+        if ((symbol->flags & SF_STATIC) == SF_STATIC) {
+            printf("static ");
+        } else if ((symbol->flags & SF_EXTERN) == SF_EXTERN) {
+            printf("extern ");
+        }
+
+        if ((symbol->flags & SF_VARIADIC) == SF_VARIADIC) {
+            printf("variadic ");
+        }
+        printf("function ");
+        if (symtable_size(symbol->symtable) > 0) {
+            printf("taking (\n");
+            symtable_iter_t iter = symtable_first(symbol->symtable);
+            for (; iter != NULL; iter = symtable_iter_next(iter)) {
+                print_indent(level + 1);
+                print_symbol(symtable_iter_value(iter), level + 1, 0);
+                printf("\n");
+            }
+            print_indent(level);
+            printf(") ");
+        }
+
+        printf("returning ");
+        if (parser_is_void_symbol(symbol->base_type)) {
+            printf("nothing");
+        } else {
+            printf("<");
+            print_symbol(symbol->base_type, level, 0);
+            printf(">");
+        }
+        if (symbol->expr != NULL && level == 0) {
+            printf(" defined as {\n");
+            show_indents[level + 1] = 0;
+            print_node(symbol->expr, level + 1, 1);
+            print_indent(level);
+            printf("}");
+        }
+        break;
+    case ST_VARIABLE:
+    case ST_GLOBAL_VARIABLE:
+    case ST_FIELD:
+        printf("%s of type <", symbol->type == ST_FIELD ? "field" : "variable");
+        print_symbol(symbol->base_type, level, depth + 1);
+        printf(">");
+        if (symbol->expr != NULL) {
+            printf(" = (\n");
+            show_indents[level + 1] = 0;
+            print_node(symbol->expr, level + 1, 1);
+            print_indent(level);
+            printf(")");
+        }
+        break;
+    case ST_PARAMETER:
+        printf("<");
+        print_symbol(symbol->base_type, level, depth + 1);
+        printf(">");
+        if (symbol->name != NULL) {
+            printf(" as %s", symbol->name);
+        }
+        break;
+    case ST_STRUCT:
+    case ST_UNION:
+    case ST_ENUM:
+        switch (symbol->type) {
+            case ST_STRUCT: printf("struct"); break;
+            case ST_UNION: printf("union"); break;
+            case ST_ENUM: printf("enum"); break;
+        }
+        printf(" %s", symbol->name);
+        if (symbol->symtable != NULL && depth == 0) {
+            printf(" defined as {\n");
+            print_symtable(symbol->symtable, level + 1);
+            print_indent(level);
+            printf("}");
+        }
+        break;
+    case ST_TYPE_ALIAS:
+        printf("alias for type <");
+        print_symbol(symbol->base_type, level, depth + 1);
+        printf(">");
+        break;
+    case ST_ENUM_CONST:
+        printf("enum const of type <");
+        print_symbol(symbol->base_type, level, depth + 1);
+        printf("> = (\n");
+        struct node_info *info = parser_node_info(symbol->expr);
+        if (info->cat == NC_ATOM) {
+            print_node(symbol->expr, level + 1, 1);
+        }
+        print_indent(level);
+        printf(")");
         break;
     default:
-        printf("(%s)\n", info->repr);
-        break;
+        printf("unknown symbol");
+    }
+}
+
+void print_symtable(symtable_t symtable, int level)
+{
+    if (symtable == NULL) {
+        return;
     }
 
+    symtable_iter_t iter = symtable_first(symtable);
+    show_indents[level] = 0;
+    for (; iter != NULL; iter = symtable_iter_next(iter)) {
+        print_indent(level);
+        switch (symtable_iter_key2(iter)) {
+        case SC_TAG:
+            printf("tag \"%s\" is ", symtable_iter_key(iter));
+            break;
+        default:
+            printf("%s is ", symtable_iter_key(iter));
+        }
+        print_symbol(symtable_iter_value(iter), level, 0);
+        printf("\n");
+    }
+}
+
+void print_node(struct node *node, int level, int root)
+{
+    if (node == NULL) {
+        return;
+    }
+
+    struct node_info *info = parser_node_info(node);
+    int i, print_type = 1;
+    show_indents[level + 1] = 1;
+
+    print_node_indent(level, root);
+    printf("(");
+    switch (node->type) {
+    case NT_INT:
+        printf("%d", ((struct int_node*)node)->value);
+        print_type = 0;
+        break;
+    case NT_DOUBLE:
+        printf("%f", ((struct double_node*)node)->value);
+        print_type = 0;
+        break;
+    case NT_STRING:
+        printf("\"%s\"", ((struct string_node*)node)->value);
+        print_type = 0;
+        break;
+    case NT_IDENT:
+        printf("ident %s", ((struct string_node*)node)->value);
+        break;
+    case NT_NOP:
+        printf("nop");
+        print_type = 0;
+        break;
+    case NT_VARIABLE:
+        printf("var %s", ((struct var_node*)node)->symbol->name);
+        break;
+    case NT_CAST:
+        printf("cast to <");
+        print_symbol(((struct cast_node*)node)->base.type_sym, level + 1, 0);
+        printf(">");
+        print_type = 0;
+        break;
+    default:
+        printf("%s", info->repr);
+        if (node->type_sym != NULL && (parser_flags_get() & PF_RESOLVE_NAMES) == PF_RESOLVE_NAMES) {
+            print_type = 1;
+        }
+        break;
+    }
+    printf(")");
+    if (node->type_sym != NULL && print_type) {
+        printf(" -> <");
+        int old_indent = show_indents[level + 1];
+        show_indents[level + 1] = 0;
+        if (node->type_sym->type == ST_VARIABLE || node->type_sym->type == ST_GLOBAL_VARIABLE || node->type_sym->type == ST_PARAMETER) {
+            print_symbol(node->type_sym->base_type, level + 1, 1);
+        } else {
+            print_symbol(node->type_sym, level + 1, 1);
+        }
+        show_indents[level + 1] = old_indent;
+        printf(">");
+    }
+    printf("\n");
+
     int op_count = parser_node_subnodes_count(node);
+    if (node->symtable != NULL && symtable_size(node->symtable) > 0) {
+        print_indent(level);
+        printf("[\n");
+        print_symtable(node->symtable, level + 1);
+        print_indent(level);
+        printf("]");
+        if (op_count == 0) {
+            printf("\n");
+        }
+    }
+
     for (i = 0; i < op_count; i++) {
         print_branch(parser_get_subnode(node, i), level, i == op_count - 1);
     }
@@ -140,19 +329,35 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
 
     lexer_init(file);
     parser_init();
+    generator_init();
 
-    struct node* node;
+    struct node* node = NULL;
+    symtable_t symtable = NULL;
+    code_t code = NULL;
 
     if (strcmp(cmd, "parse_expr") == 0) {
+        parser_flags_set(0);
         node = parser_parse_expr();
+        print_node(node, 0, 0);
     } else if (strcmp(cmd, "parse_stmt") == 0) {
+        parser_flags_set(0);
         node = parser_parse_statement();
+        print_node(node, 0, 0);
+    } else if (strcmp(cmd, "parse") == 0) {
+        parser_flags_set(PF_RESOLVE_NAMES);
+        symtable = parser_parse();
+        print_symtable(symtable, 0);
+    } else if (strcmp(cmd, "compile") == 0) {
+        symtable = parser_parse();
+        code = generator_process(symtable);
+        generator_print_code(code);
     }
 
-    if (node != NULL) {
-        print_node(node, 0);
-        parser_free_node(node);
-    }
+    parser_free_node(node);
+    symtable_destroy(symtable, 1);
+    generator_free_code(code);
+
+    generator_destroy();
     parser_destroy();
     lexer_destroy();
 

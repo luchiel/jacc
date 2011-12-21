@@ -5,10 +5,15 @@ import os
 import difflib
 import time
 
+jacc_cmd = lambda x: 'jacc %s "%%(input)s" > "%%(output)s" 2>&1' % x
+
 tests = {
-    'lexer': 'jacc lex "%(input)s" > "%(output)s" 2>&1',
-    'expressions': 'jacc parse_expr "%(input)s" > "%(output)s" 2>&1',
-    'statements': 'jacc parse_stmt "%(input)s" > "%(output)s" 2>&1',
+    'lexer': jacc_cmd('lex'),
+    'expressions': jacc_cmd('parse_expr'),
+    'statements': jacc_cmd('parse_stmt'),
+    'declarations': jacc_cmd('parse'),
+    'semantic': jacc_cmd('parse'),
+    'generator': 'jacc compile "%(input)s" > "%(asm_output)s" 2>&1 && fasm "%(asm_output)s" "%(exe_output)s" 2>&1 > "%(output)s" && "%(exe_output)s" > "%(output)s"',
 }
 
 tester_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +29,7 @@ def unlink(path):
 
 def read_file(name):
     lines = open(name, 'r').readlines()
-    return [line.strip() for line in lines]
+    return [line.strip() for line in lines if len(line.strip()) > 0]
 
 def run_tests(dir, cmd_template):
     path = os.path.join(tests_dir, dir)
@@ -36,15 +41,20 @@ def run_tests(dir, cmd_template):
         total += 1
 
         output_file = change_ext(test, '.out')
+        asm_output_file = change_ext(test, '.asm')
+        exe_output_file = change_ext(test, '.exe')
         answer_file = change_ext(test, '.answer')
         diff_file = change_ext(test, '.diff')
 
         cmd = cmd_template % {
             'input': test,
             'output': output_file,
+            'exe_output': exe_output_file,
+            'asm_output': asm_output_file,
         }
 
         unlink(output_file)
+        unlink(exe_output_file)
         unlink(diff_file)
 
         ret_code = os.system(cmd)
@@ -82,7 +92,7 @@ if __name__ == '__main__':
     total = 0
     total_failed = 0
     started_at = time.time()
-    for dir, cmd in tests.items():
+    for dir, cmd in sorted(tests.items()):
         stats = run_tests(dir, os.path.join(tester_dir, cmd))
 
         total += stats['total']
@@ -94,12 +104,12 @@ if __name__ == '__main__':
         fail_list = ""
         if stats['failed']:
             fail_list = " - %s" % (', '.join(stats['failed']))
-        print("%s: %s (%d/%d)%s" % (dir, status, succeed, stats['total'], fail_list))
+        print("%s (%d/%d): %s%s" % (dir, succeed, stats['total'], status, fail_list))
 
     succeed = total - total_failed
     print("---")
 
-    print("%s (%d/%d, %.2f seconds)" % (
+    print("%s (%d/%d succeed, %.2f seconds)" % (
         get_status(total_failed),
         succeed,
         total,

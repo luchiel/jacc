@@ -1,0 +1,8 @@
+struct a;
+struct a {
+    int a, b, c;
+};
+
+struct b {
+    struct a *a;
+};

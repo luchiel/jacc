@@ -1,0 +1,52 @@
+test_subscript is function returning nothing defined as {
+   (list)
+   [
+      a is variable of type <array [
+         (5)
+      ] of int>
+      b is variable of type <array [
+         (5)
+      ] of array [
+         (5)
+      ] of int>
+   ]
+    +-(*) -> <int>
+       |
+       +-(+) -> <pointer to int>
+          |
+          +-(&) -> <pointer to int>
+          |  |
+          |  +-(var a) -> <array [
+          |          (5)
+          |       ] of int>
+          |
+          +-(3)
+
+    +-(*) -> <int>
+       |
+       +-(+) -> <array [
+               (5)
+            ] of int>
+          |
+          +-(*) -> <array [
+          |       (5)
+          |    ] of int>
+          |  |
+          |  +-(+) -> <pointer to array [
+          |          (5)
+          |       ] of int>
+          |     |
+          |     +-(&) -> <pointer to array [
+          |     |       (5)
+          |     |    ] of int>
+          |     |  |
+          |     |  +-(var b) -> <array [
+          |     |          (5)
+          |     |       ] of array [
+          |     |          (5)
+          |     |       ] of int>
+          |     |
+          |     +-(1)
+          |
+          +-(1)
+}

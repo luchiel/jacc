@@ -1,0 +1,31 @@
+tag "S" is struct S defined as {
+   y is field of type <double>
+}
+
+y is variable of type <struct S>
+St is alias for type <struct S>
+y2 is variable of type <alias for type <struct S>>
+
+main is function returning <int> defined as {
+   (list)
+    |
+    +-(=) -> <double>
+    |  |
+    |  +-(.) -> <double>
+    |  |  |
+    |  |  +-(var y) -> <struct S>
+    |  |  |
+    |  |  +-(ident y) -> <field of type <double>>
+    |  |
+    |  +-(1.000000)
+    |
+    +-(=) -> <double>
+       |
+       +-(.) -> <double>
+       |  |
+       |  +-(var y2) -> <alias for type <struct S>>
+       |  |
+       |  +-(ident y) -> <field of type <double>>
+       |
+       +-(2.000000)
+}

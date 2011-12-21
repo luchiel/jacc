@@ -1,0 +1,6 @@
+int t()
+{
+    (int *)(void*)0;
+    (int)(double)7;
+    return (int)3.;
+}

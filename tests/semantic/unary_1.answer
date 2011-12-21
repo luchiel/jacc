@@ -1,0 +1,42 @@
+test_unary is function returning nothing defined as {
+   (list)
+   [
+      i is variable of type <int> = (
+         (0)
+      )
+      f is variable of type <double> = (
+         (0.000000)
+      )
+   ]
+    +-(@++) -> <int>
+       |
+       +-(var i) -> <int>
+
+    +-(@--) -> <int>
+       |
+       +-(var i) -> <int>
+
+    +-(@++) -> <double>
+       |
+       +-(var f) -> <double>
+
+    +-(@--) -> <double>
+       |
+       +-(var f) -> <double>
+
+    +-(++@) -> <int>
+       |
+       +-(var i) -> <int>
+
+    +-(--@) -> <int>
+       |
+       +-(var i) -> <int>
+
+    +-(++@) -> <double>
+       |
+       +-(var f) -> <double>
+
+    +-(--@) -> <double>
+       |
+       +-(var f) -> <double>
+}

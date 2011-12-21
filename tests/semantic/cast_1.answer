@@ -1,0 +1,21 @@
+t is function returning <int> defined as {
+   (list)
+    |
+    +-(cast to <pointer to int>)
+    |  |
+    |  +-(cast to <pointer to void>)
+    |     |
+    |     +-(0)
+    |
+    +-(cast to <int>)
+    |  |
+    |  +-(cast to <double>)
+    |     |
+    |     +-(7)
+    |
+    +-(return)
+       |
+       +-(cast to <int>)
+          |
+          +-(3.000000)
+}

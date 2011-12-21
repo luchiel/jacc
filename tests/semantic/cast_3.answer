@@ -1,0 +1,57 @@
+char_test is function returning nothing defined as {
+   (list)
+   [
+      c is variable of type <char> = (
+         (cast to <char>)
+          |
+          +-(0)
+      )
+   ]
+    +-(+) -> <char>
+       |
+       +-(var c) -> <char>
+       |
+       +-(cast to <char>)
+          |
+          +-(1)
+
+    +-(+) -> <char>
+       |
+       +-(cast to <char>)
+       |  |
+       |  +-(1)
+       |
+       +-(var c) -> <char>
+
+    +-(+) -> <int>
+       |
+       +-(cast to <int>)
+       |  |
+       |  +-(var c) -> <char>
+       |
+       +-(1)
+
+    +-(+) -> <int>
+       |
+       +-(1)
+       |
+       +-(cast to <int>)
+          |
+          +-(var c) -> <char>
+
+    +-(+) -> <double>
+       |
+       +-(cast to <double>)
+       |  |
+       |  +-(var c) -> <char>
+       |
+       +-(1.000000)
+
+    +-(+) -> <double>
+       |
+       +-(1.000000)
+       |
+       +-(cast to <double>)
+          |
+          +-(var c) -> <char>
+}

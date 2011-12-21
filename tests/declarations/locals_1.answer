@@ -1,0 +1,13 @@
+main is function returning <int> defined as {
+   (list)
+   [
+      a is variable of type <int>
+      b is variable of type <int>
+      tag "a" is struct a defined as {
+         ooo is field of type <int>
+      }
+   ]
+    +-(return)
+       |
+       +-(1)
+}

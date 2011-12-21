@@ -1,0 +1,4 @@
+a is variable of type <pointer to int>
+b is variable of type <pointer to pointer to int>
+c is variable of type <pointer to int>
+d is variable of type <pointer to int>

@@ -1,0 +1,20 @@
+void main()
+{
+	struct {
+		int a, b;
+		union {
+			int a;
+			struct {
+				int a, b;
+			} q;
+		} q;
+	} ah;
+	ah.a = 3;
+	ah.b = 9;
+	printf("%d %d\n", ah.a, ah.b);
+
+	ah.q.a = 2;
+	ah.q.q.a = 4;
+	ah.q.q.b = 3;
+	printf("%d %d %d\n", ah.q.a, ah.q.q.a, ah.q.q.b);
+}
