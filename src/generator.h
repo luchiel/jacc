@@ -36,8 +36,6 @@ enum asm_operand_size {
     AOS_QWORD,
 };
 
-typedef int label_t;
-
 struct asm_operand {
     enum asm_operand_type type;
     union {

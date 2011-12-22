@@ -61,6 +61,7 @@ COMMAND(FILD, fild, 1)
 COMMAND(FST, fst, 1)
 COMMAND(FSTP, fstp, 1)
 COMMAND(FISTTP, fisttp, 1)
+COMMAND(FISTP, fistp, 1)
 COMMAND(FCOMIP, fcomip, 1)
 
 COMMAND(FADDP, faddp, 0)

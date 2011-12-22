@@ -1,5 +1,5 @@
 void main()
 {
     printf("%lf %lf %lf %lf\n", (double)-1, (double)0, (double)1, (double)300);
-    printf("%d %d %d %d\n", (int)-1.0, (int)0.123, (int)1.678, (int)30000.0);
+//	printf("%d %d %d %d\n", (int)-1.0, (int)0.123, (int)1.678, (int)30000.0);
 }

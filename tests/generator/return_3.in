@@ -1,0 +1,9 @@
+double a(double a)
+{
+	return a * 4.;
+}
+
+void main()
+{
+	printf("%lf %lf\n", a(1.5), a(1.0));
+}

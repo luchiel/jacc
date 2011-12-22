@@ -26,6 +26,7 @@ struct asm_operand registers[] = {
 
 code_t cur_code;
 int label_counter;
+struct symbol *cur_function;
 
 static int print_operand(struct asm_operand *op)
 {
@@ -571,6 +572,19 @@ static void generate_statement(struct node *expr)
         emit_label(l2);
         break;
     }
+    case NT_RETURN:
+    {
+        if (is_compatible_types(expr->type_sym, &sym_int)) {
+            generate_expr(expr->ops[0], 1);
+            emit(ASM_POP, eax);
+        } else if (expr->type_sym == &sym_double) {
+            generate_expr(expr->ops[0], 1);
+            emit(ASM_FLD, qword(deref(esp)));
+            emit(ASM_ADD, esp, constant(8));
+        }
+        emit(ASM_JMP, label(cur_function->return_label));
+        break;
+    }
     default:
         emit_text("; unknown statement %s", parser_node_info(expr)->repr);
     }
@@ -624,6 +638,17 @@ static void generate_expr(struct node *expr, int ret)
         }
         emit(ASM_CALL, target); // @todo function pointers
         emit(ASM_ADD, esp, constant(size));
+
+        if (is_compatible_types(expr->type_sym, &sym_int) || expr->type_sym->type == ST_POINTER) {
+            if (ret) emit(ASM_PUSH, eax);
+        } else if (expr->type_sym == &sym_double) {
+            if (ret) {
+                emit(ASM_SUB, esp, constant(8));
+                emit(ASM_FSTP, qword(deref(esp)));
+            } else {
+                emit(ASM_FFREEP, st0);
+            }
+        }
         return;
     }
     case NT_STRING:
@@ -699,7 +724,6 @@ static void generate_expr(struct node *expr, int ret)
         }
         return;
     }
-
     case NT_REFERENCE:
         emit(ASM_LEA, eax, lvalue(expr->ops[0]));
         if (ret) emit(ASM_PUSH, eax);
@@ -772,6 +796,8 @@ static void generate_function(struct symbol *func)
         return;
     }
 
+    cur_function = func;
+    func->return_label = gen_label();
     int is_main = strcmp(func->name, "main") == 0;
 
     emit_text("; start %s", func->name);
@@ -793,6 +819,7 @@ static void generate_function(struct symbol *func)
         emit(ASM_ADD, esp, constant(func->locals_size));
     }
 
+    emit_label(func->return_label);
     emit(ASM_MOV, esp, ebp);
     emit(ASM_POP, ebp);
 
