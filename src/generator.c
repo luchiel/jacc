@@ -55,8 +55,18 @@ static int print_operand(struct asm_operand *op)
         }
 
         if (op->data.memory.offset != NULL) {
-            if (cnt) printf(" + ");
-            cnt += print_operand(op->data.memory.offset);
+            if (cnt) {
+                if (op->data.memory.offset->type == AOT_CONSTANT) {
+                    int value = op->data.memory.offset->data.value;
+                    if (value < 0) printf(" - %d", -value);
+                    else if (value > 0) printf(" + %d", value);
+                } else {
+                    printf(" + ");
+                    cnt += print_operand(op->data.memory.offset);
+                }
+            } else {
+                cnt += print_operand(op->data.memory.offset);
+            }
         }
 
         printf("]");
@@ -94,6 +104,7 @@ static void print_opcode(struct asm_opcode *opcode)
         break;
     }
     case ACT_NOP:
+        printf("; nop\n");
         break;
     case ACT_TEXT:
     case ACT_DATA:
