@@ -255,6 +255,13 @@ int opt_fstp_fld(struct asm_opcode **list)
     return -1;
 }
 
+typedef int (*optimization_delegate_t)(struct asm_opcode **list);
+struct optimization_pass
+{
+    optimization_delegate_t func;
+    int frame_size;
+};
+
 struct optimization_pass passes[] = {
     { opt_push_pop2, 4 },
     { opt_push_pop, 2 },
