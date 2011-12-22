@@ -152,6 +152,29 @@ int opt_lea_push(struct asm_opcode **list)
     return -1;
 }
 
+int opt_lea_mov(struct asm_opcode **list)
+{
+    if ( match_cmd(list[0], ASM_LEA)
+      && match_cmd(list[1], ASM_MOV)
+      && match_op_type(list[0], 0, AOT_REGISTER)
+      && match_op_type(list[0], 1, AOT_MEMORY)
+      && match_op_type(list[1], 0, AOT_MEMORY)
+      && !match_op_type(list[1], 1, AOT_MEMORY)
+      && is_eq_op(get_op(list[1], 0)->data.memory.base, get_op(list[0], 0))
+      && get_op(list[1], 0)->data.memory.index == NULL
+      && has_const_offset(get_op(list[0], 1))
+      && has_const_offset(get_op(list[1], 0))
+      ) {
+        set_cmd_type(list[0], ASM_MOV);
+        move_op(list[0], 1, list[0], 0);
+        move_op(list[1], 1, list[0], 1);
+        get_op(list[0], 0)->data.memory.size = get_op(list[1], 0)->data.memory.size;
+        get_op(list[0], 0)->data.memory.offset = constant(get_offset(get_op(list[0], 0)) + get_offset(get_op(list[1], 0)));
+        return 1;
+    }
+    return -1;
+}
+
 int cmd_sign(struct asm_opcode *opcode)
 {
     switch (opcode->data.command.cmd->type) {
@@ -205,6 +228,7 @@ struct optimization_pass passes[] = {
     { opt_mov_self, 1 },
     { opt_lea_lea, 2 },
     { opt_lea_push, 2 },
+    { opt_lea_mov, 2 },
     { opt_add_sub, 2 },
     { opt_mov_mov, 2 },
 };
