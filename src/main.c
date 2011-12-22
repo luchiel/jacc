@@ -8,6 +8,7 @@
 #include "log.h"
 #include "symtable.h"
 #include "generator.h"
+#include "optimizer.h"
 
 int show_indents[255];
 
@@ -351,6 +352,7 @@ int cmd_parse_expr(FILE *file, const char *filename, const char *cmd)
         symtable = parser_parse();
         if (symtable != NULL) {
             code = generator_process(symtable);
+            optimizer_optimize(code);
             generator_print_code(code);
         } else {
             print_symtable(symtable, 0);

@@ -17,6 +17,7 @@ enum asm_register_type {
 
 struct asm_command {
     const char *name;
+    enum asm_command_type type;
     int op_count;
 };
 
@@ -29,7 +30,6 @@ enum asm_operand_type {
 };
 
 enum asm_operand_size {
-    AOS_NONE,
     AOS_BYTE,
     AOS_WORD,
     AOS_DWORD,
@@ -91,5 +91,9 @@ extern void generator_print_code(code_t code);
 extern void generator_free_operand_data(struct asm_operand *operand);
 extern void generator_free_opcode_data(struct asm_opcode *opcode);
 extern void generator_free_code(code_t code);
+
+extern struct asm_command *generator_get_command(enum asm_command_type type);
+
+extern struct asm_operand *constant(int value);
 
 #endif

@@ -9,7 +9,7 @@
 #include "parser.h"
 
 struct asm_command commands[] = {
-#define COMMAND(name, repr, op_count) { #repr, op_count },
+#define COMMAND(name, repr, op_count) { #repr, ASM_##name, op_count },
 #include "commands.def"
 #undef COMMAND
 };
@@ -175,7 +175,7 @@ static void emit_data(char *data)
     add_opcode(&cur_code->data_list, opcode);
 }
 
-static struct asm_operand *constant(int value)
+extern struct asm_operand *constant(int value)
 {
     struct asm_operand *operand = jacc_malloc(sizeof(*operand));
     operand->type = AOT_CONSTANT;
@@ -207,7 +207,7 @@ static struct asm_operand *memory(struct asm_operand *base, struct asm_operand *
     operand->data.memory.offset = offset;
     operand->data.memory.index = index;
     operand->data.memory.scale = scale;
-    operand->data.memory.size = AOS_NONE;
+    operand->data.memory.size = AOS_DWORD;
     return operand;
 }
 
@@ -923,4 +923,9 @@ extern void generator_free_code(code_t code)
     free_opcode_list_data(&code->opcode_list);
     free_opcode_list_data(&code->data_list);
     jacc_free(code);
+}
+
+extern struct asm_command *generator_get_command(enum asm_command_type type)
+{
+    return &commands[type];
 }
