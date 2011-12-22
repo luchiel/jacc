@@ -30,11 +30,17 @@ void move_op(struct asm_opcode *opcode1, int pos1, struct asm_opcode *opcode2, i
 
 int is_eq_op(struct asm_operand *op1, struct asm_operand *op2)
 {
+    if (op1 == NULL && op2 == NULL) {
+        return 1;
+    }
     if (op1->type != op2->type) {
         return 0;
     }
     if (op1->type == AOT_REGISTER) {
         return op1->data.register_name == op2->data.register_name;
+    } else if (op1->type == AOT_MEMORY) {
+        return is_eq_op(op1->data.memory.base, op2->data.memory.base)
+            && is_eq_op(op1->data.memory.offset, op2->data.memory.offset);
     }
     return 0;
 }
@@ -137,6 +143,22 @@ int opt_lea_push(struct asm_opcode **list)
       && match_cmd(list[1], ASM_PUSH)
       && match_op_type(list[0], 0, AOT_REGISTER)
       && match_op_type(list[0], 1, AOT_MEMORY)
+      && is_eq_op(get_op(list[1], 0), get_op(list[0], 0))
+      && get_op(list[0], 1)->data.memory.offset == NULL
+      ) {
+        set_cmd_type(list[0], ASM_PUSH);
+        set_op(list[0], 0, get_op(list[0], 1)->data.memory.base);
+        return 1;
+    }
+    return -1;
+}
+
+int opt_lea_push_ref(struct asm_opcode **list)
+{
+    if ( match_cmd(list[0], ASM_LEA)
+      && match_cmd(list[1], ASM_PUSH)
+      && match_op_type(list[0], 0, AOT_REGISTER)
+      && match_op_type(list[0], 1, AOT_MEMORY)
       && match_op_type(list[1], 0, AOT_MEMORY)
       && is_eq_op(get_op(list[1], 0)->data.memory.base, get_op(list[0], 0))
       && get_op(list[1], 0)->data.memory.index == NULL
@@ -152,7 +174,7 @@ int opt_lea_push(struct asm_opcode **list)
     return -1;
 }
 
-int opt_lea_mov(struct asm_opcode **list)
+int opt_lea_mov_ref(struct asm_opcode **list)
 {
     if ( match_cmd(list[0], ASM_LEA)
       && match_cmd(list[1], ASM_MOV)
@@ -222,15 +244,28 @@ int opt_add_sub(struct asm_opcode **list)
     return -1;
 }
 
+int opt_fstp_fld(struct asm_opcode **list)
+{
+    if ( match_cmd(list[0], ASM_FSTP)
+      && match_cmd(list[1], ASM_FLD)
+      && is_eq_op(get_op(list[0], 0), get_op(list[1], 0))
+      ) {
+        return 0;
+    }
+    return -1;
+}
+
 struct optimization_pass passes[] = {
     { opt_push_pop2, 4 },
     { opt_push_pop, 2 },
     { opt_mov_self, 1 },
     { opt_lea_lea, 2 },
     { opt_lea_push, 2 },
-    { opt_lea_mov, 2 },
+    { opt_lea_push_ref, 2 },
+    { opt_lea_mov_ref, 2 },
     { opt_add_sub, 2 },
     { opt_mov_mov, 2 },
+    { opt_fstp_fld, 2 },
 };
 
 void optimizer_optimize(code_t code)
