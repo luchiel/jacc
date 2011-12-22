@@ -1,0 +1,9 @@
+int f(int n)
+{
+	return n < 2 ? 1 : n * f(n - 1);
+}
+
+void main()
+{
+	printf("%d %d\n", f(5), f(6));
+}
