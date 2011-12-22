@@ -7,7 +7,4 @@ main is function returning <int> defined as {
          ooo is field of type <int>
       }
    ]
-    +-(return)
-       |
-       +-(1)
 }

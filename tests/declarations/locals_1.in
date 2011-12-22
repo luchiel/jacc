@@ -3,5 +3,4 @@ int main() {
     struct a {
         int ooo;
     };
-    return 1;
 }

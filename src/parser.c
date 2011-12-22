@@ -1186,8 +1186,10 @@ static struct node *parse_stmt()
         next_token();
         if (token.type == TOK_SEMICOLON) {
             PARSE(ret_node->ops[0], nop)
+            ret_node->type_sym = &sym_void;
         } else {
             PARSE(ret_node->ops[0], expr, 0)
+            ret_node->type_sym = ret_node->ops[0]->type_sym;
         }
         CONSUME(TOK_SEMICOLON)
         return (struct node*)ret_node;

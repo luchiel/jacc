@@ -13,7 +13,7 @@ t is function returning <int> defined as {
     |     |
     |     +-(7)
     |
-    +-(return)
+    +-(return) -> <int>
        |
        +-(cast to <int>)
           |

@@ -4,7 +4,7 @@ t1 is variadic function taking (
 ) returning <int> defined as {
    (list)
     |
-    +-(return)
+    +-(return) -> <int>
        |
        +-(0)
 }
