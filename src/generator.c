@@ -328,7 +328,7 @@ static void generate_unary_int_op(struct node *expr, int ret)
         emit(ASM_XOR, ecx, ecx);
         emit(ASM_TEST, eax, eax);
         emit(ASM_SETZ, cl);
-        emit(ASM_MOV, eax, eax);
+        emit(ASM_MOV, eax, ecx);
         break;
     case NT_COMPLEMENT: emit(ASM_NOT, eax); break;
     case NT_NEGATION: emit(ASM_NEG, eax); break;
