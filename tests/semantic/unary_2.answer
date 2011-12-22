@@ -7,17 +7,13 @@ test_unary is function returning <int> defined as {
     |
     +-(!) -> <int>
     |  |
-    |  +-(cast to <int>)
+    |  +-(cast to <char>)
     |     |
-    |     +-(cast to <char>)
-    |        |
-    |        +-(1)
+    |     +-(1)
     |
     +-(!) -> <int>
     |  |
-    |  +-(cast to <int>)
-    |     |
-    |     +-(1.000000)
+    |  +-(1.000000)
     |
     +-(~) -> <int>
     |  |

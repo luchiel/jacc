@@ -888,7 +888,7 @@ static struct node *parse_unary_expr()
             struct symbol *type = resolve_alias(node->ops[0]->type_sym);
             switch (node->base.type) {
             case NT_LOGICAL_NEGATION:
-                if (type != &sym_double && !is_compatible_types(type, &sym_int)) {
+                if (type != &sym_double && type != &sym_char && !is_compatible_types(type, &sym_int)) {
                     parser_error("invalid operand");
                     return NULL;
                 }
