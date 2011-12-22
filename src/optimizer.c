@@ -200,13 +200,13 @@ int opt_add_sub(struct asm_opcode **list)
 }
 
 struct optimization_pass passes[] = {
-    { opt_push_pop2, 4},
-    { opt_push_pop, 2},
-    { opt_mov_self, 1},
-    { opt_lea_lea, 2},
-    { opt_lea_push, 2},
-    { opt_add_sub, 2},
-    { opt_mov_mov, 2},
+    { opt_push_pop2, 4 },
+    { opt_push_pop, 2 },
+    { opt_mov_self, 1 },
+    { opt_lea_lea, 2 },
+    { opt_lea_push, 2 },
+    { opt_add_sub, 2 },
+    { opt_mov_mov, 2 },
 };
 
 void optimizer_optimize(code_t code)
