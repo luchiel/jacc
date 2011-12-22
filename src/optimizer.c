@@ -152,12 +152,45 @@ int opt_lea_push(struct asm_opcode **list)
     return -1;
 }
 
+int cmd_sign(struct asm_opcode *opcode)
+{
+    switch (opcode->data.command.cmd->type) {
+    case ASM_ADD: return 1;
+    case ASM_SUB: return -1;
+    }
+    return 0;
+}
+
+int opt_add_sub(struct asm_opcode **list)
+{
+    if ( (match_cmd(list[0], ASM_ADD) || match_cmd(list[0], ASM_SUB))
+      && (match_cmd(list[1], ASM_ADD) || match_cmd(list[1], ASM_SUB))
+      && is_eq_op(get_op(list[0], 0), get_op(list[1], 0))
+      && match_op_type(list[0], 1, AOT_CONSTANT)
+      && match_op_type(list[1], 1, AOT_CONSTANT)
+      ) {
+        int value = 0;
+        value += cmd_sign(list[0]) * get_op(list[0], 1)->data.value;
+        value += cmd_sign(list[1]) * get_op(list[1], 1)->data.value;
+        if (value < 0) {
+            set_cmd_type(list[0], ASM_SUB);
+            set_op(list[0], 1, constant(-value));
+        } else {
+            set_cmd_type(list[0], ASM_ADD);
+            set_op(list[0], 1, constant(value));
+        }
+        return 1;
+    }
+    return -1;
+}
+
 struct optimization_pass passes[] = {
     { opt_push_pop2, 4},
     { opt_push_pop, 2},
     { opt_mov_self, 1},
     { opt_lea_lea, 2},
     { opt_lea_push, 2},
+    { opt_add_sub, 2},
 };
 
 void optimizer_optimize(code_t code)
