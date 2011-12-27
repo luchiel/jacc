@@ -731,7 +731,6 @@ static void generate_expr(struct node *expr, int ret)
     case NT_DEREFERENCE:
         generate_expr(expr->ops[0], 1);
         emit(ASM_POP, eax);
-        emit_text("; ");
         push_value(dword(deref(eax)), expr->type_sym, ret);
         return;
     case NT_VARIABLE:
