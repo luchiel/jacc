@@ -121,25 +121,6 @@ int opt_lea_lea(asm_command_t *cmd)
 }
 
 /*
- * lea reg, []
- * push [reg]
- */
-int opt_lea_push(asm_command_t *cmd)
-{
-    if ( cmd[0].type == ASM_LEA
-      && cmd[1].type == ASM_PUSH
-      && cmd[0].ops[0].type == AOT_REGISTER
-      && cmd[1].ops[0].type == AOT_MEMORY
-      && is_eq(&cmd[0].ops[0], &cmd[1].ops[0].memory.base)
-      ) {
-        cmd[0].type = ASM_PUSH;
-        cmd[0].ops[0] = cmd[0].ops[1];
-        return 1;
-    }
-    return -1;
-}
-
-/*
  * lea reg1, []
  * mov reg2, reg1
  * =>
@@ -163,21 +144,25 @@ int opt_lea_mov(asm_command_t *cmd)
 
 /*
  * lea reg, []
- * push [reg]
+ * push/inc/dec [reg]
  * =>
- * push []
+ * push/inc/dec []
 */
 
-int opt_lea_push_ref(asm_command_t *cmd)
+int opt_lea_deref(asm_command_t *cmd)
 {
     if ( cmd[0].type == ASM_LEA
-      && cmd[1].type == ASM_PUSH
+      && (
+           cmd[1].type == ASM_PUSH
+        || cmd[1].type == ASM_INC
+        || cmd[1].type == ASM_DEC
+         )
       && cmd[0].ops[0].type == AOT_REGISTER
       && cmd[0].ops[1].type == AOT_MEMORY
       && cmd[1].ops[0].type == AOT_MEMORY
       && is_eq(&cmd[1].ops[0].memory.base, &cmd[0].ops[0])
       ) {
-        cmd[0].type = ASM_PUSH;
+        cmd[0].type = cmd[1].type;
         cmd[0].ops[0] = cmd[0].ops[1];
         cmd[0].ops[0].memory.size = cmd[1].ops[0].memory.size;
         cmd[0].ops[0].memory.offset += cmd[1].ops[0].memory.offset;
@@ -390,6 +375,54 @@ int opt_fstp_fld(asm_command_t *cmd)
     return -1;
 }
 
+asm_instruction_t invert_instruction(asm_instruction_t cmd)
+{
+    switch (cmd)
+    {
+    case ASM_JE: return ASM_JNE;
+    case ASM_JNE: return ASM_JE;
+    case ASM_JLE: return ASM_JG;
+    case ASM_JL: return ASM_JGE;
+    case ASM_JGE: return ASM_JL;
+    case ASM_JG: return ASM_JLE;
+    }
+    return cmd;
+}
+/*
+ * setl cl
+ * test ecx, ecx
+ * jnz/jz label
+ * =>
+ * jcc/inverted jcc label
+ */
+
+int opt_cond_jmp(asm_command_t *cmd)
+{
+    asm_instruction_t new_op = ASM_NOP;
+    switch (cmd[0].type) {
+    case ASM_SETE: new_op = ASM_JE; break;
+    case ASM_SETNE: new_op = ASM_JNE; break;
+    case ASM_SETLE: new_op = ASM_JLE; break;
+    case ASM_SETL: new_op = ASM_JL; break;
+    case ASM_SETGE: new_op = ASM_JGE; break;
+    case ASM_SETG: new_op = ASM_JG; break;
+    }
+    if ( new_op != ASM_NOP
+      && cmd[1].type == ASM_TEST
+      && (cmd[2].type == ASM_JNZ || cmd[2].type == ASM_JZ)
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[1].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[0].reg == AR_CL
+      && cmd[1].ops[0].reg == AR_ECX
+      && is_eq(&cmd[1].ops[0], &cmd[1].ops[1])
+      ) {
+        cmd[0].type = cmd[2].type == ASM_JZ ? invert_instruction(new_op) : new_op;
+        cmd[0].ops[0] = cmd[2].ops[0];
+        return 1;
+    }
+    return -1;
+}
+
 typedef int (*optimization_delegate_t)(asm_command_t *list);
 struct optimization_pass
 {
@@ -403,14 +436,14 @@ struct optimization_pass passes[] = {
     { opt_mov_self, 1 },
     { opt_lea_lea, 2 },
     { opt_lea_mov, 2 },
-    { opt_lea_push, 2 },
-    { opt_lea_push_ref, 2 },
+    { opt_lea_deref, 2 },
     { opt_lea_mov_ref, 2 },
     { opt_add_sub, 2 },
     { opt_mov, 2 },
     { opt_imul2, 1 },
     { opt_idiv, 3 },
     { opt_fstp_fld, 2 },
+    { opt_cond_jmp, 3 },
 };
 
 void optimizer_optimize(code_t code)
