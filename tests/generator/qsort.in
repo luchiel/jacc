@@ -1,0 +1,40 @@
+void _qsort(double *a, int l, int h)
+{
+    int i = l, j = h;
+    double x = a[l + (h - l) / 2];
+    do {
+        while (a[i] < x) i++;
+        while (a[j] > x) j--;
+        if (i <= j) {
+            double t = a[i];
+            a[i] = a[j];
+            a[j] = t;
+            i++;
+            j--;
+        }
+    } while (i <= j);
+
+    if (l < j) _qsort(a, l, j);
+    if (h > i) _qsort(a, i, h);
+}
+
+void qsort(double *ary, int size)
+{
+    _qsort(ary, 0, size - 1);
+}
+
+void main()
+{
+    double t[5];
+    t[0] = 3.123;
+    t[1] = 1.4323;
+    t[2] = 123.94;
+    t[3] = 0.0;
+    t[4] = -77.1;
+    qsort(t, 5);
+
+    int i;
+    for (i = 0; i < 5; i++) {
+        printf("%lf\n", t[i]);
+    }
+}
