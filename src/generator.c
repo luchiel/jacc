@@ -753,7 +753,7 @@ static void generate_expr(struct node *expr, int ret)
             generate_expr(expr->ops[1], 1);
             emit(ASM_POP, eax);
             emit(ASM_MOV, ebx, constant(s1->base_type->size));
-            emit(ASM_MUL, ebx);
+            emit(ASM_IMUL, ebx);
             emit(ASM_POP, ebx);
             emit(ASM_ADD, eax, ebx);
             if (ret) emit(ASM_PUSH, eax);
