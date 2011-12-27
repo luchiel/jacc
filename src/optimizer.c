@@ -140,6 +140,28 @@ int opt_lea_push(asm_command_t *cmd)
 }
 
 /*
+ * lea reg1, []
+ * mov reg2, reg1
+ * =>
+ * lea reg, []
+ */
+
+int opt_lea_mov(asm_command_t *cmd)
+{
+    if ( cmd[0].type == ASM_LEA
+      && cmd[1].type == ASM_MOV
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[1].ops[0].type == AOT_REGISTER
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[1])
+      ) {
+        cmd[0].ops[0] = cmd[1].ops[0];
+        return 1;
+    }
+    return -1;
+}
+
+
+/*
  * lea reg, []
  * push [reg]
  * =>
@@ -232,17 +254,19 @@ int opt_add_sub(asm_command_t *cmd)
     return -1;
 }
 
-/*
- * mov b, a
- * mov c, b
- * =>
- * mov c, a
- */
-
-int opt_mov_mov(asm_command_t *cmd)
+int opt_mov(asm_command_t *cmd)
 {
-    if ( cmd[0].type == ASM_MOV
-      && cmd[1].type == ASM_MOV
+    if (cmd[0].type != ASM_MOV) {
+        return -1;
+    }
+
+    /*
+     * mov b, a
+     * mov c, b
+     * =>
+     * mov c, a
+     */
+    if (cmd[1].type == ASM_MOV
       && cmd[0].ops[0].type != AOT_MEMORY
       && is_eq(&cmd[0].ops[0], &cmd[1].ops[1])
       && ( cmd[0].ops[1].type != AOT_MEMORY
@@ -250,6 +274,99 @@ int opt_mov_mov(asm_command_t *cmd)
          )
       ) {
         cmd[0].ops[0] = cmd[1].ops[0];
+        return 1;
+    }
+
+    /*
+     * mov reg1, reg2
+     * test reg1, reg1
+     * =>
+     * test reg2, reg2
+     */
+    if (cmd[1].type == ASM_TEST
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[1].type == AOT_REGISTER
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[1])
+      && is_eq(&cmd[1].ops[0], &cmd[1].ops[1])
+      ) {
+        cmd[0].type = ASM_TEST;
+        cmd[0].ops[0] = cmd[0].ops[1];
+        return 1;
+    }
+
+    /*
+     * mov reg1, imm
+     * imul imm
+     * =>
+     * imul eax, imm
+     */
+    if (cmd[1].type == ASM_IMUL
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[1].type == AOT_CONSTANT
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[0])
+      ) {
+        cmd[0].type = ASM_IMUL2;
+        cmd[0].ops[0].reg = AR_EAX;
+        return 1;
+    }
+    return -1;
+}
+
+int is_power_of_2(int v)
+{
+    return (v & (v - 1)) == 0;
+}
+
+int int_log2(int v)
+{
+    int r = 0;
+    while (v >= 2) {
+        v /= 2;
+        r++;
+    }
+    return r;
+}
+
+/*
+ * imul2 reg, 2**p
+ * =>
+ * shl reg, p
+ */
+
+int opt_imul2(asm_command_t *cmd)
+{
+    if ( cmd[0].type == ASM_IMUL2
+      && cmd[0].ops[1].type == AOT_CONSTANT
+      && is_power_of_2(cmd[0].ops[1].value)
+      ) {
+        cmd[0].type = ASM_SHL;
+        cmd[0].ops[1].value = int_log2(cmd[0].ops[1].value);
+        return 1;
+    }
+    return -1;
+}
+
+/*
+ * mov reg, 2**p
+ * cdq
+ * idiv reg
+ * =>
+ * sar eax, p
+ */
+
+int opt_idiv(asm_command_t *cmd)
+{
+    if ( cmd[0].type == ASM_MOV
+      && cmd[1].type == ASM_CDQ
+      && cmd[2].type == ASM_IDIV
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[1].type == AOT_CONSTANT
+      && is_power_of_2(cmd[0].ops[1].value)
+      && is_eq(&cmd[0].ops[0], &cmd[2].ops[0])
+      ) {
+        cmd[0].type = ASM_SAR;
+        cmd[0].ops[0].reg = AR_EAX;
+        cmd[0].ops[1].value = int_log2(cmd[0].ops[1].value);
         return 1;
     }
     return -1;
@@ -285,11 +402,14 @@ struct optimization_pass passes[] = {
     { opt_push_pop, 2 },
     { opt_mov_self, 1 },
     { opt_lea_lea, 2 },
+    { opt_lea_mov, 2 },
     { opt_lea_push, 2 },
     { opt_lea_push_ref, 2 },
     { opt_lea_mov_ref, 2 },
     { opt_add_sub, 2 },
-    { opt_mov_mov, 2 },
+    { opt_mov, 2 },
+    { opt_imul2, 1 },
+    { opt_idiv, 3 },
     { opt_fstp_fld, 2 },
 };
 
