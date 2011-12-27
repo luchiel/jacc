@@ -3,259 +3,277 @@
 
 #define ARRAY_LENGTH(array) (int)(sizeof((array)) / sizeof((array)[0]))
 
-void set_cmd_type(struct asm_opcode *op, enum asm_command_type cmd_type)
+int is_eq(void *operand1, void *operand2)
 {
-    op->data.command.cmd = generator_get_command(cmd_type);
-}
+    asm_operand_t *op1 = (asm_operand_t *)operand1;
+    asm_operand_t *op2 = (asm_operand_t *)operand2;
 
-struct asm_operand *get_op(struct asm_opcode *opcode, int pos)
-{
-    return opcode->data.command.ops[pos];
-}
-
-void set_op(struct asm_opcode *opcode, int pos, struct asm_operand *op)
-{
-    opcode->data.command.ops[pos] = op;
-}
-
-void set_nop(struct asm_opcode *opcode)
-{
-    opcode->type = ACT_NOP;
-}
-
-void move_op(struct asm_opcode *opcode1, int pos1, struct asm_opcode *opcode2, int pos2)
-{
-    set_op(opcode2, pos2, get_op(opcode1, pos1));
-}
-
-int is_eq_op(struct asm_operand *op1, struct asm_operand *op2)
-{
-    if (op1 == NULL && op2 == NULL) {
-        return 1;
-    }
     if (op1->type != op2->type) {
         return 0;
     }
-    if (op1->type == AOT_REGISTER) {
-        return op1->data.register_name == op2->data.register_name;
-    } else if (op1->type == AOT_MEMORY) {
-        return is_eq_op(op1->data.memory.base, op2->data.memory.base)
-            && is_eq_op(op1->data.memory.offset, op2->data.memory.offset);
+
+    switch (op1->type) {
+    case AOT_REGISTER:
+        return op1->reg == op2->reg;
+    case AOT_CONSTANT:
+        return op1->value == op2->value;
+    case AOT_MEMORY:
+        return is_eq(&op1->memory.base, &op2->memory.base)
+            && is_eq(&op1->memory.index, &op2->memory.index)
+            && op1->memory.offset == op2->memory.offset
+            && op1->memory.scale == op2->memory.scale
+            && op1->memory.size == op2->memory.size;
+    case AOT_LABEL:
+        return op1->label.id == op2->label.id
+            && op1->label.name == op2->label.name;
     }
     return 0;
 }
 
-int has_const_offset(struct asm_operand *op)
+int push_pop_opt_possible(asm_command_t *a, asm_command_t *b)
 {
-    return op->type == AOT_MEMORY
-        && (
-            op->data.memory.offset == NULL
-         || op->data.memory.offset->type == AOT_CONSTANT
-        );
-}
-
-int get_offset(struct asm_operand *op)
-{
-    if (op->data.memory.offset == NULL) {
-        return 0;
-    }
-    return op->data.memory.offset->data.value;
-}
-
-int match_cmd(struct asm_opcode *op, enum asm_command_type cmd_type)
-{
-    return op->data.command.cmd->type == cmd_type;
-}
-
-int match_op_type(struct asm_opcode *opcode, int pos, enum asm_operand_type operand_type)
-{
-    return get_op(opcode, pos)->type == operand_type;
-}
-
-int push_pop_opt_possible(struct asm_opcode *op0, struct asm_opcode *op1)
-{
-    return match_cmd(op0, ASM_PUSH)
-        && match_cmd(op1, ASM_POP)
-        && ( !match_op_type(op0, 0, AOT_MEMORY)
-          || !match_op_type(op1, 0, AOT_MEMORY)
+    return a->type == ASM_PUSH
+        && b->type == ASM_POP
+        && ( a->ops[0].type != AOT_MEMORY
+          || b->ops[0].type != AOT_MEMORY
            );
 }
 
-int opt_push_pop2(struct asm_opcode **list)
+/*
+ * push a
+ * push b
+ * pop c
+ * pop d
+ * =>
+ * mov c, b
+ * mov d, a
+ */
+int opt_push_pop2(asm_command_t *cmd)
 {
-    if ( push_pop_opt_possible(list[0], list[3])
-      && push_pop_opt_possible(list[1], list[2])
-      && !is_eq_op(get_op(list[0], 0), get_op(list[1], 0))
+    if ( push_pop_opt_possible(&cmd[0], &cmd[3])
+      && push_pop_opt_possible(&cmd[1], &cmd[2])
+      //&& cmd[0]->ops[0] != cmd[1]->ops[1]
       ) {
-        set_cmd_type(list[0], ASM_MOV);
-        move_op(list[0], 0, list[0], 1);
-        move_op(list[3], 0, list[0], 0);
+        cmd[0].type = ASM_MOV;
+        cmd[1].type = ASM_MOV;
 
-        set_cmd_type(list[1], ASM_MOV);
-        move_op(list[1], 0, list[1], 1);
-        move_op(list[2], 0, list[1], 0);
+        cmd[0].ops[1] = cmd[1].ops[0];
+        cmd[1].ops[1] = cmd[0].ops[0];
+
+        cmd[0].ops[0] = cmd[2].ops[0];
+        cmd[1].ops[0] = cmd[3].ops[0];
         return 2;
     }
     return -1;
 }
 
-int opt_push_pop(struct asm_opcode **list)
+/*
+ * push a
+ * pop b
+ * =>
+ * mov a, b
+ */
+int opt_push_pop(asm_command_t *cmd)
 {
-    if (push_pop_opt_possible(list[0], list[1])) {
-        set_cmd_type(list[0], ASM_MOV);
-        move_op(list[0], 0, list[0], 1);
-        move_op(list[1], 0, list[0], 0);
+    if (push_pop_opt_possible(&cmd[0], &cmd[1])) {
+        cmd[0].type = ASM_MOV;
+        cmd[0].ops[1] = cmd[0].ops[0];
+        cmd[0].ops[0] = cmd[1].ops[0];
         return 1;
     }
     return -1;
 }
 
-int opt_mov_self(struct asm_opcode **list)
+/*
+ * mov a, a
+ * =>
+ * nothing
+ */
+int opt_mov_self(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_MOV)
-      && match_op_type(list[0], 0, AOT_REGISTER)
-      && match_op_type(list[0], 1, AOT_REGISTER)
-      && is_eq_op(get_op(list[0], 0), get_op(list[0], 1))
+    if ( cmd[0].type == ASM_MOV
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[1].type == AOT_REGISTER
+      && cmd[0].ops[0].reg == cmd[0].ops[1].reg
       ) {
         return 0;
     }
     return -1;
 }
 
-int opt_lea_lea(struct asm_opcode **list)
+/*
+ * lea reg1, [reg2 + imm1]
+ * lea reg1, [reg1 + imm2]
+ * =>
+ * lea reg1, [reg2 + imm1 + imm2]
+ */
+int opt_lea_lea(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_LEA)
-      && match_cmd(list[1], ASM_LEA)
-      && has_const_offset(get_op(list[0], 1))
-      && has_const_offset(get_op(list[1], 1))
-      && get_op(list[0], 1)->data.memory.size == get_op(list[1], 1)->data.memory.size
-      && get_op(list[1], 0) == get_op(list[1], 1)->data.memory.base
+    if ( cmd[0].type == ASM_LEA
+      && cmd[1].type == ASM_LEA
+      && cmd[0].ops[0].reg == cmd[1].ops[0].reg
+      && is_eq(&cmd[1].ops[1].memory.base, &cmd[1].ops[1].memory.base)
       ) {
-        get_op(list[0], 1)->data.memory.offset = constant(get_offset(get_op(list[0], 1)) + get_offset(get_op(list[1], 1)));
+        cmd[0].ops[1].memory.offset += cmd[1].ops[1].memory.offset;
         return 1;
     }
     return -1;
 }
 
-int opt_lea_push(struct asm_opcode **list)
+/*
+ * lea reg, []
+ * push [reg]
+ */
+int opt_lea_push(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_LEA)
-      && match_cmd(list[1], ASM_PUSH)
-      && match_op_type(list[0], 0, AOT_REGISTER)
-      && match_op_type(list[0], 1, AOT_MEMORY)
-      && is_eq_op(get_op(list[1], 0), get_op(list[0], 0))
-      && get_op(list[0], 1)->data.memory.offset == NULL
+    if ( cmd[0].type == ASM_LEA
+      && cmd[1].type == ASM_PUSH
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[1].ops[0].type == AOT_MEMORY
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[0].memory.base)
       ) {
-        set_cmd_type(list[0], ASM_PUSH);
-        set_op(list[0], 0, get_op(list[0], 1)->data.memory.base);
+        cmd[0].type = ASM_PUSH;
+        cmd[0].ops[0] = cmd[0].ops[1];
         return 1;
     }
     return -1;
 }
 
-int opt_lea_push_ref(struct asm_opcode **list)
+/*
+ * lea reg, []
+ * push [reg]
+ * =>
+ * push []
+*/
+
+int opt_lea_push_ref(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_LEA)
-      && match_cmd(list[1], ASM_PUSH)
-      && match_op_type(list[0], 0, AOT_REGISTER)
-      && match_op_type(list[0], 1, AOT_MEMORY)
-      && match_op_type(list[1], 0, AOT_MEMORY)
-      && is_eq_op(get_op(list[1], 0)->data.memory.base, get_op(list[0], 0))
-      && get_op(list[1], 0)->data.memory.index == NULL
-      && has_const_offset(get_op(list[0], 1))
-      && has_const_offset(get_op(list[1], 0))
+    if ( cmd[0].type == ASM_LEA
+      && cmd[1].type == ASM_PUSH
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[1].type == AOT_MEMORY
+      && cmd[1].ops[0].type == AOT_MEMORY
+      && is_eq(&cmd[1].ops[0].memory.base, &cmd[0].ops[0])
       ) {
-        set_cmd_type(list[0], ASM_PUSH);
-        move_op(list[0], 1, list[0], 0);
-        get_op(list[0], 0)->data.memory.size = get_op(list[1], 0)->data.memory.size;
-        get_op(list[0], 0)->data.memory.offset = constant(get_offset(get_op(list[0], 0)) + get_offset(get_op(list[1], 0)));
+        cmd[0].type = ASM_PUSH;
+        cmd[0].ops[0] = cmd[0].ops[1];
+        cmd[0].ops[0].memory.size = cmd[1].ops[0].memory.size;
+        cmd[0].ops[0].memory.offset += cmd[1].ops[0].memory.offset;
         return 1;
     }
     return -1;
 }
 
-int opt_lea_mov_ref(struct asm_opcode **list)
+/*
+ * lea reg1, dword []
+ * mov dword [reg1], reg2/imm
+ * =>
+ * mov dword [], reg2/imm
+ */
+
+int opt_lea_mov_ref(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_LEA)
-      && match_cmd(list[1], ASM_MOV)
-      && match_op_type(list[0], 0, AOT_REGISTER)
-      && match_op_type(list[0], 1, AOT_MEMORY)
-      && match_op_type(list[1], 0, AOT_MEMORY)
-      && !match_op_type(list[1], 1, AOT_MEMORY)
-      && is_eq_op(get_op(list[1], 0)->data.memory.base, get_op(list[0], 0))
-      && get_op(list[1], 0)->data.memory.index == NULL
-      && has_const_offset(get_op(list[0], 1))
-      && has_const_offset(get_op(list[1], 0))
+    if ( cmd[0].type == ASM_LEA
+      && cmd[1].type == ASM_MOV
+      && cmd[0].ops[0].type == AOT_REGISTER
+      && cmd[0].ops[1].type == AOT_MEMORY
+      && cmd[1].ops[0].type == AOT_MEMORY
+      && cmd[1].ops[1].type != AOT_MEMORY
+      && is_eq(&cmd[1].ops[0].memory.base, &cmd[0].ops[0])
       ) {
-        set_cmd_type(list[0], ASM_MOV);
-        move_op(list[0], 1, list[0], 0);
-        move_op(list[1], 1, list[0], 1);
-        get_op(list[0], 0)->data.memory.size = get_op(list[1], 0)->data.memory.size;
-        get_op(list[0], 0)->data.memory.offset = constant(get_offset(get_op(list[0], 0)) + get_offset(get_op(list[1], 0)));
+        cmd[0].type = ASM_MOV;
+        cmd[0].ops[0] = cmd[0].ops[1];
+        cmd[0].ops[1] = cmd[1].ops[1];
+        cmd[0].ops[0].memory.size = cmd[1].ops[0].memory.size;
+        cmd[0].ops[0].memory.offset += cmd[1].ops[0].memory.offset;
         return 1;
     }
     return -1;
 }
 
-int cmd_sign(struct asm_opcode *opcode)
+/*
+ * add/sub reg/mem, imm1
+ * add/sub reg/mem, imm2
+ * =>
+ * add/sub reg/mem, imm1+imm2
+ */
+
+int cmd_sign(asm_command_t *cmd)
 {
-    switch (opcode->data.command.cmd->type) {
+    switch (cmd->type) {
     case ASM_ADD: return 1;
     case ASM_SUB: return -1;
     }
     return 0;
 }
 
-int opt_mov_mov(struct asm_opcode **list)
+int opt_add_sub(asm_command_t *cmd)
 {
-    if ( (match_cmd(list[0], ASM_ADD) || match_cmd(list[0], ASM_SUB))
-      && (match_cmd(list[1], ASM_ADD) || match_cmd(list[1], ASM_SUB))
-      && is_eq_op(get_op(list[0], 0), get_op(list[1], 0))
-      && match_op_type(list[0], 1, AOT_CONSTANT)
-      && match_op_type(list[1], 1, AOT_CONSTANT)
+    if ( (cmd[0].type == ASM_ADD || cmd[0].type == ASM_SUB)
+      && (cmd[1].type == ASM_ADD || cmd[1].type == ASM_SUB)
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[0])
+      && cmd[0].ops[1].type == AOT_CONSTANT
+      && cmd[1].ops[1].type == AOT_CONSTANT
       ) {
         int value = 0;
-        value += cmd_sign(list[0]) * get_op(list[0], 1)->data.value;
-        value += cmd_sign(list[1]) * get_op(list[1], 1)->data.value;
+        value += cmd_sign(&cmd[0]) * cmd[0].ops[1].value;
+        value += cmd_sign(&cmd[1]) * cmd[1].ops[1].value;
         if (value < 0) {
-            set_cmd_type(list[0], ASM_SUB);
-            set_op(list[0], 1, constant(-value));
+            cmd[0].type = ASM_SUB;
+            cmd[0].ops[1].value = -value;
+        } else if (value > 0) {
+            cmd[0].type = ASM_ADD;
+            cmd[0].ops[1].value = value;
         } else {
-            set_cmd_type(list[0], ASM_ADD);
-            set_op(list[0], 1, constant(value));
+            return 0;
         }
         return 1;
     }
     return -1;
 }
 
-int opt_add_sub(struct asm_opcode **list)
+/*
+ * mov b, a
+ * mov c, b
+ * =>
+ * mov c, a
+ */
+
+int opt_mov_mov(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_MOV)
-      && match_cmd(list[1], ASM_MOV)
-      && is_eq_op(get_op(list[0], 0), get_op(list[1], 1))
-      && ( !match_op_type(list[0], 1, AOT_MEMORY)
-        || !match_op_type(list[1], 0, AOT_MEMORY)
+    if ( cmd[0].type == ASM_MOV
+      && cmd[1].type == ASM_MOV
+      && cmd[0].ops[0].type != AOT_MEMORY
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[1])
+      && ( cmd[0].ops[1].type != AOT_MEMORY
+        || cmd[1].ops[0].type != AOT_MEMORY
          )
       ) {
-        move_op(list[1], 0, list[0], 0);
+        cmd[0].ops[0] = cmd[1].ops[0];
         return 1;
     }
     return -1;
 }
 
-int opt_fstp_fld(struct asm_opcode **list)
+/*
+ * fstp reg/mem
+ * fld reg/mem
+ * =>
+ * nothing
+ */
+
+int opt_fstp_fld(asm_command_t *cmd)
 {
-    if ( match_cmd(list[0], ASM_FSTP)
-      && match_cmd(list[1], ASM_FLD)
-      && is_eq_op(get_op(list[0], 0), get_op(list[1], 0))
+    if ( cmd[0].type == ASM_FSTP
+      && cmd[1].type == ASM_FLD
+      && is_eq(&cmd[0].ops[0], &cmd[1].ops[0])
       ) {
         return 0;
     }
     return -1;
 }
 
-typedef int (*optimization_delegate_t)(struct asm_opcode **list);
+typedef int (*optimization_delegate_t)(asm_command_t *list);
 struct optimization_pass
 {
     optimization_delegate_t func;
@@ -277,7 +295,7 @@ struct optimization_pass passes[] = {
 
 void optimizer_optimize(code_t code)
 {
-    struct asm_opcode_list *list = &code->opcode_list;
+    asm_opcode_list_t *list = &code->opcode_list;
     int changed = 1, max_frame_size = 0;
 
     int i = 0;
@@ -291,16 +309,17 @@ void optimizer_optimize(code_t code)
         int i = 0, pos = 0, count = list->count;
         changed = 0;
         for (; i < count; i++) {
-            if (list->data[i]->type != ACT_COMMAND) {
-                if (list->data[i]->type != ACT_NOP) {
-                    list->data[pos] = list->data[i];
-                    pos++;
-                }
+            if (list->data[i].type == ASM_TEXT) {
+                list->data[pos] = list->data[i];
+                pos++;
+                continue;
+            } else if (list->data[i].type == ASM_NOP) {
                 continue;
             }
+
             int j, frame_size = 0;
             for (j = 0; j < max_frame_size && i + j < count; j++) {
-                if (list->data[i + j]->type == ACT_NOP) {
+                if (list->data[i + j].type == ASM_NOP) {
                     break;
                 }
                 frame_size++;
@@ -310,7 +329,7 @@ void optimizer_optimize(code_t code)
                 if (frame_size < passes[j].frame_size) {
                     continue;
                 }
-                int result = passes[j].func(list->data + i);
+                int result = passes[j].func(&list->data[i]);
                 if (result != -1) {
                     if (frame_size > result) {
                         frame_size = result;
@@ -318,7 +337,7 @@ void optimizer_optimize(code_t code)
                     match = 1;
                     int k = result;
                     for (; k < passes[j].frame_size; k++) {
-                        list->data[i + k]->type = ACT_NOP;
+                        list->data[i + k].type = ASM_NOP;
                     }
                 }
             }
@@ -337,3 +356,4 @@ void optimizer_optimize(code_t code)
         count = list->count = pos;
     }
 }
+

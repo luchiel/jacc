@@ -30,7 +30,11 @@ enum symbol_class {
 
 typedef struct symtable_data *symtable_t;
 
-typedef int label_t;
+typedef struct {
+    int id;
+    const char *name;
+} label_t;
+
 struct symbol {
     enum symbol_type type;
     const char *name;

@@ -1,3 +1,5 @@
+COMMAND(TEXT, _, 0)
+
 COMMAND(ADD, add, 2)
 COMMAND(SUB, sub, 2)
 COMMAND(MUL, mul, 1)
@@ -51,7 +53,7 @@ COMMAND(SETBE, setbe, 1)
 
 COMMAND(CALL, call, 1)
 COMMAND(RET, ret, 0)
-
+COMMAND(NOP, nop, 0)
 
 COMMAND(FFREEP, ffreep, 1)
 COMMAND(FLD, fld, 1)

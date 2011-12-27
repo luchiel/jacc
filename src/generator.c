@@ -2,25 +2,31 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "generator.h"
 #include "memory.h"
 #include "symtable.h"
 #include "parser.h"
 
-struct asm_command commands[] = {
-#define COMMAND(name, repr, op_count) { #repr, ASM_##name, op_count },
+asm_instruction_info_t instructions[] = {
+#define COMMAND(name, repr, op_count) { ASM_##name, #repr, op_count },
 #include "commands.def"
 #undef COMMAND
 };
 
-struct asm_operand registers[] = {
-#define REGISTER(name, varname) { AOT_REGISTER, {}},
+asm_register_info_t registers[] = {
+#define REGISTER(name, varname) #varname,
 #include "registers.def"
 #undef REGISTER
 };
 
-#define REGISTER(name, varname) struct asm_operand * varname = & registers[ART_##name];
+#define REGISTER(name, varname) asm_operand_t varname = { \
+    AOT_REGISTER, AR_##name, { 0, NULL }, { \
+        { AOT_REGISTER, AR_NONE, { 0, NULL } }, \
+        { AOT_REGISTER, AR_NONE, { 0, NULL } }, \
+        AOS_DWORD, 0, 0 \
+    }, 0 };
 #include "registers.def"
 #undef REGISTER
 
@@ -28,7 +34,7 @@ code_t cur_code;
 int label_counter;
 struct symbol *cur_function;
 
-static int print_operand(struct asm_operand *op)
+static int print_operand(asm_operand_t *op)
 {
     if (op == NULL) {
         return 0;
@@ -38,7 +44,7 @@ static int print_operand(struct asm_operand *op)
     case AOT_MEMORY:
     {
         int cnt = 0;
-        switch (op->data.memory.size) {
+        switch (op->memory.size) {
         case AOS_BYTE: printf("byte "); break;
         case AOS_WORD: printf("word "); break;
         case AOS_DWORD: printf("dword "); break;
@@ -46,27 +52,24 @@ static int print_operand(struct asm_operand *op)
         }
 
         printf("[");
-        cnt += print_operand(op->data.memory.base);
-        if (op->data.memory.index != NULL) {
+        cnt += print_operand((asm_operand_t*)&op->memory.base);
+        if (op->memory.scale && !(op->memory.index.type == AOT_REGISTER && op->memory.index.reg == AR_NONE))  {
             if (cnt) printf(" + ");
-            cnt += print_operand(op->data.memory.index);
-            if (op->data.memory.scale != 1) {
-                printf("*%d", op->data.memory.scale);
+            cnt += print_operand((asm_operand_t*)&op->memory.index);
+            if (op->memory.scale != 1) {
+                printf("*%d", op->memory.scale);
             }
         }
 
-        if (op->data.memory.offset != NULL) {
+        if (op->memory.offset) {
             if (cnt) {
-                if (op->data.memory.offset->type == AOT_CONSTANT) {
-                    int value = op->data.memory.offset->data.value;
-                    if (value < 0) printf(" - %d", -value);
-                    else if (value > 0) printf(" + %d", value);
+                if (op->memory.offset < 0) {
+                    printf(" - %d", -op->memory.offset);
                 } else {
-                    printf(" + ");
-                    cnt += print_operand(op->data.memory.offset);
+                    printf(" + %d", op->memory.offset);
                 }
             } else {
-                cnt += print_operand(op->data.memory.offset);
+                printf("%d", op->memory.offset);
             }
         }
 
@@ -74,47 +77,43 @@ static int print_operand(struct asm_operand *op)
         break;
     }
     case AOT_REGISTER:
-        printf("%s", op->data.register_name);
+        if (op->reg == AR_NONE) {
+            return 0;
+        }
+        printf("%s", registers[op->reg]);
         break;
     case AOT_CONSTANT:
-        printf("%d", op->data.value);
+        printf("%d", op->value);
         break;
     case AOT_LABEL:
-        printf("_@%d", op->data.label);
-        break;
-    case AOT_TEXT_LABEL:
-        printf("_%s", op->data.text_label);
+        if (op->label.name != NULL) {
+            printf("_%s", op->label.name);
+        } else {
+            printf("_@%d", op->label.id);
+        }
         break;
     }
     return 1;
 }
 
-static void print_opcode(struct asm_opcode *opcode)
+static void print_command(asm_command_t *command)
 {
-    switch (opcode->type) {
-    case ACT_COMMAND:
-    {
-        int i;
-        struct asm_command *cmd = opcode->data.command.cmd;
-        printf("\t%s", cmd->name);
-        for (i = 0; i < cmd->op_count; i++) {
-            printf(i == 0 ? " " : ", ");
-            print_operand(opcode->data.command.ops[i]);
-        }
-        printf("\n");
-        break;
+    if (command->type == ASM_TEXT) {
+        printf("%s\n", command->text);
+        return;
     }
-    case ACT_NOP:
-        printf("; nop\n");
-        break;
-    case ACT_TEXT:
-    case ACT_DATA:
-        printf("%s\n", opcode->data.text);
-        break;
+
+    asm_instruction_info_t *cmd_info = &instructions[command->type];
+    int i, op_count = cmd_info->op_count;
+    printf("\t%s", cmd_info->name);
+    for (i = 0; i < op_count; i++) {
+        printf(i == 0 ? " " : ", ");
+        print_operand(&command->ops[i]);
     }
+    printf("\n");
 }
 
-static void add_opcode(struct asm_opcode_list *list, struct asm_opcode *opcode)
+static void add_opcode(asm_opcode_list_t *list, asm_command_t opcode)
 {
     int new_size = 0;
     if (list->count == 0) {
@@ -131,111 +130,115 @@ static void add_opcode(struct asm_opcode_list *list, struct asm_opcode *opcode)
     list->count++;
 }
 
-static void emit(enum asm_command_type cmd, ...)
+static void emit(asm_instruction_t cmd, ...)
 {
-    struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
-    opcode->type = ACT_COMMAND;
-    opcode->data.command.cmd = &commands[cmd];
+    asm_command_t command;
+    command.type = cmd;
 
     va_list args;
     va_start(args, cmd);
-    int i;
-    for (i = 0; i < commands[cmd].op_count; i++) {
-        opcode->data.command.ops[i] = va_arg(args, struct asm_operand *);
+    int i, op_count = instructions[cmd].op_count;
+    for (i = 0; i < op_count; i++) {
+        command.ops[i] = va_arg(args, asm_operand_t);
     }
     va_end(args);
 
-    add_opcode(&cur_code->opcode_list, opcode);
+    add_opcode(&cur_code->opcode_list, command);
 }
 
 static void emit_text(char *format, ...)
 {
-    struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
-    opcode->type = ACT_TEXT;
+    asm_command_t command;
+    command.type = ASM_TEXT;
+    command.text = jacc_malloc(256);
 
-    char *buffer = jacc_malloc(256);
     va_list args;
     va_start(args, format);
-    vsprintf(buffer, format, args);
+    vsprintf(command.text, format, args);
     va_end(args);
-
-    opcode->data.text = buffer;
-    add_opcode(&cur_code->opcode_list, opcode);
+    add_opcode(&cur_code->opcode_list, command);
 }
 
 static void emit_label(label_t label)
 {
-    emit_text("_@%d:", label);
+    emit_text("_@%d:", label.id);
 }
 
 static void emit_data(char *data)
 {
-    struct asm_opcode *opcode = jacc_malloc(sizeof(*opcode));
-    opcode->type = ACT_DATA;
-    opcode->data.text = data;
-    add_opcode(&cur_code->data_list, opcode);
+    asm_command_t command;
+    command.type = ASM_TEXT;
+    command.text = data;
+    add_opcode(&cur_code->data_list, command);
 }
 
-extern struct asm_operand *constant(int value)
+extern asm_operand_t constant(int value)
 {
-    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
-    operand->type = AOT_CONSTANT;
-    operand->data.value = value;
+    asm_operand_t operand;
+    operand.type = AOT_CONSTANT;
+    operand.value = value;
     return operand;
 }
 
-static struct asm_operand *label(label_t label)
+static asm_operand_t label(label_t label)
 {
-    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
-    operand->type = AOT_LABEL;
-    operand->data.label = label;
+    asm_operand_t operand;
+    operand.type = AOT_LABEL;
+    operand.label = label;
     return operand;
 }
 
-static struct asm_operand *text_label(const char *label)
+static asm_operand_t text_label(const char *label)
 {
-    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
-    operand->type = AOT_TEXT_LABEL;
-    operand->data.text_label = label;
+    asm_operand_t operand;
+    operand.type = AOT_LABEL;
+    operand.label.id = -1;
+    operand.label.name = label;
     return operand;
 }
 
-static struct asm_operand *memory(struct asm_operand *base, struct asm_operand *offset, struct asm_operand *index, int scale)
+static asm_operand_t memory(asm_operand_t base, int offset, asm_operand_t index)
 {
-    struct asm_operand *operand = jacc_malloc(sizeof(*operand));
-    operand->type = AOT_MEMORY;
-    operand->data.memory.base = base;
-    operand->data.memory.offset = offset;
-    operand->data.memory.index = index;
-    operand->data.memory.scale = scale;
-    operand->data.memory.size = AOS_DWORD;
+    assert(base.type == AOT_REGISTER || base.type == AOT_LABEL);
+    assert(index.type == AOT_REGISTER);
+    asm_operand_t operand;
+    operand.type = AOT_MEMORY;
+    operand.memory.base.type = base.type;
+    operand.memory.base.reg = base.reg;
+    operand.memory.base.label = base.label;
+    operand.memory.index.type = index.type;
+    operand.memory.index.reg = index.reg;
+    operand.memory.index.label = index.label;
+    operand.memory.offset = offset;
+    operand.memory.scale = 1;
+    operand.memory.size = AOS_DWORD;
     return operand;
 }
 
-static struct asm_operand *deref(struct asm_operand *base)
+static asm_operand_t deref(asm_operand_t base)
 {
-    return memory(base, NULL, NULL, 1);
+    return memory(base, 0, none_reg);
 }
 
-static struct asm_operand *size_spec(enum asm_operand_size size, struct asm_operand *op)
+static asm_operand_t size_spec(asm_operand_size_t size, asm_operand_t op)
 {
-    if (op->type == AOT_MEMORY) {
-        op->data.memory.size = size;
+    if (op.type == AOT_MEMORY) {
+        op.memory.size = size;
     }
     return op;
 }
 
-static struct asm_operand *dword(struct asm_operand *subop)
+static asm_operand_t dword(asm_operand_t subop)
 {
     return size_spec(AOS_DWORD, subop);
 }
 
-static struct asm_operand *qword(struct asm_operand *subop)
+static asm_operand_t qword(asm_operand_t subop)
 {
     return size_spec(AOS_QWORD, subop);
 }
 
-static void push_value(struct asm_operand *op, struct symbol *type, int ret)
+static void push_value(asm_operand_t op, struct symbol *type, int ret)
 {
     if (!ret) {
         return;
@@ -252,12 +255,15 @@ static void push_value(struct asm_operand *op, struct symbol *type, int ret)
 
 static label_t gen_label()
 {
-    return ++label_counter;
+    label_t label;
+    label.id = ++label_counter;
+    label.name = NULL;
+    return label;
 }
 
 static void generate_expr(struct node *expr, int ret);
 
-static struct asm_operand *lvalue(struct node *expr)
+static asm_operand_t lvalue(struct node *expr)
 {
     switch (expr->type) {
     case NT_VARIABLE:
@@ -265,14 +271,14 @@ static struct asm_operand *lvalue(struct node *expr)
         struct var_node *var = (struct var_node*)expr;
         switch (var->symbol->type) {
         case ST_PARAMETER:
-            return dword(memory(ebp, constant(var->symbol->offset + 8), NULL, 1));
+            return dword(memory(ebp, var->symbol->offset + 8, none_reg));
         case ST_VARIABLE:
-            return dword(memory(ebp, constant(var->symbol->offset - var->symbol->size), NULL, 1));
+            return dword(memory(ebp, var->symbol->offset - var->symbol->size, none_reg));
         case ST_GLOBAL_VARIABLE:
-            if (var->symbol->label == 0) {
+            if (var->symbol->label.id == 0) {
                 var->symbol->label = gen_label();
                 char *buf = jacc_malloc(30);
-                sprintf(buf, "_@%d db %d dup(0)", var->symbol->label, var->symbol->size);
+                sprintf(buf, "_@%d db %d dup(0)", var->symbol->label.id, var->symbol->size);
                 emit_data(buf);
             }
             return dword(deref(label(var->symbol->label)));
@@ -287,7 +293,7 @@ static struct asm_operand *lvalue(struct node *expr)
         return deref(eax);
     case NT_MEMBER:
         emit(ASM_LEA, eax, lvalue(expr->ops[0]));
-        return memory(eax, constant(expr->ops[1]->type_sym->offset), NULL, 1);
+        return memory(eax, expr->ops[1]->type_sym->offset, none_reg);
     default:
         emit_text("; '%s' is not lvalue", parser_node_info(expr)->repr);
     }
@@ -300,7 +306,7 @@ static void generate_lvalue(struct node *expr)
     emit(ASM_PUSH, eax);
 }
 
-static void generate_int_cmp(enum asm_command_type cmd)
+static void generate_int_cmp(asm_instruction_t cmd)
 {
     emit(ASM_XOR, ecx, ecx);
     emit(ASM_CMP, eax, ebx);
@@ -308,7 +314,7 @@ static void generate_int_cmp(enum asm_command_type cmd)
     emit(ASM_MOV, eax, ecx);
 }
 
-static void generate_int_logical_op(enum asm_command_type cmd)
+static void generate_int_logical_op(asm_instruction_t cmd)
 {
     label_t lbl = gen_label();
     emit(ASM_XOR, ecx, ecx);
@@ -402,7 +408,7 @@ static void generate_binary_int_op(struct node *expr, int ret)
     if (ret) emit(ASM_PUSH, eax);
 }
 
-static void generate_double_cmp(enum asm_command_type cmd)
+static void generate_double_cmp(asm_instruction_t cmd)
 {
     emit(ASM_ADD, esp, constant(8));
     emit(ASM_XOR, ecx, ecx);
@@ -425,7 +431,7 @@ static void generate_unary_double_op(struct node *expr, int ret)
         emit(ASM_SETE, cl);
         emit(ASM_FFREEP, st0);
         if (ret) {
-            emit(ASM_MOV, memory(esp, constant(4), NULL, 0), ecx);
+            emit(ASM_MOV, memory(esp, 4, none_reg), ecx);
             emit(ASM_ADD, esp, constant(4));
         } else {
             emit(ASM_ADD, esp, constant(8));
@@ -596,7 +602,7 @@ static label_t emit_data_array(const char *data_ptr, int size)
     char *buf = jacc_malloc(15 + 4 * size);
     char *ptr = buf;
 
-    ptr += sprintf(ptr, "_@%d db ", (int)str_label);
+    ptr += sprintf(ptr, "_@%d db ", str_label.id);
     int i = 0;
     for (; i < size; i++) {
         ptr += sprintf(ptr, i == 0 ? "%d" : ",%d", data_ptr[i] < 0 ? 256 + data_ptr[i] : data_ptr[i]);
@@ -632,7 +638,7 @@ static void generate_expr(struct node *expr, int ret)
             generate_expr(list->items[i], 1);
             size += list->items[i]->type_sym->size;
         }
-        struct asm_operand *target = text_label(expr->ops[0]->type_sym->name);
+        asm_operand_t target = text_label(expr->ops[0]->type_sym->name);
         if ((expr->ops[0]->type_sym->flags & SF_EXTERN) == SF_EXTERN) {
             target = deref(target);
         }
@@ -718,7 +724,7 @@ static void generate_expr(struct node *expr, int ret)
                 emit(ASM_FSTP, qword(deref(esp)));
             } else if (s0 == &sym_double && (is_compatible_types(ret_type, &sym_int) || is_ptr_type(ret_type))) {
                 emit(ASM_FLD, qword(deref(esp)));
-                emit(ASM_FISTTP, dword(memory(esp, constant(4), NULL, 0)));
+                emit(ASM_FISTTP, dword(memory(esp, 4, none_reg)));
                 emit(ASM_ADD, esp, constant(4));
             }
         }
@@ -842,10 +848,6 @@ static void generate_function(struct symbol *func)
 
 extern void generator_init()
 {
-#define REGISTER(name, varname) registers[ART_##name].data.register_name = #varname;
-#include "registers.def"
-#undef REGISTER
-
     label_counter = 0;
 }
 
@@ -878,7 +880,7 @@ extern void generator_print_code(code_t code)
     printf("include '%%fasm%%/include/win32a.inc'\n\n");
     printf("section '.text' code executable\n");
     for (i = 0; i < code->opcode_list.count; i++) {
-        print_opcode(code->opcode_list.data[i]);
+        print_command(&code->opcode_list.data[i]);
     }
 
     printf("section '.data' data readable writable\n\n");
@@ -886,7 +888,7 @@ extern void generator_print_code(code_t code)
     printf("_@stack_corruption_msg db \"Stack corruption\",10,0\n");
 
     for (i = 0; i < code->data_list.count; i++) {
-        print_opcode(code->data_list.data[i]);
+        print_command(&code->data_list.data[i]);
     }
 
     printf("\nsection '.idata' data readable import\n");
@@ -895,49 +897,8 @@ extern void generator_print_code(code_t code)
     printf("import msvcrt, _printf, 'printf'\n");
 }
 
-static void free_memory_subop(struct asm_operand *operand)
+static void free_opcode_list_data(asm_opcode_list_t *list)
 {
-    if (operand != NULL && operand->type == AOT_CONSTANT) {
-        jacc_free(operand);
-    }
-}
-
-extern void generator_free_operand_data(struct asm_operand *operand)
-{
-    switch (operand->type) {
-    case AOT_MEMORY:
-        free_memory_subop(operand->data.memory.base);
-        free_memory_subop(operand->data.memory.index);
-        free_memory_subop(operand->data.memory.offset);
-        break;
-    }
-}
-
-extern void generator_free_opcode_data(struct asm_opcode *opcode)
-{
-    switch (opcode->type) {
-    case ACT_COMMAND:
-    {
-        int i;
-        for (i = 0; i < opcode->data.command.cmd->op_count; i++) {
-            generator_free_operand_data(opcode->data.command.ops[i]);
-        }
-        break;
-    }
-    case ACT_TEXT:
-    case ACT_DATA:
-        jacc_free(opcode->data.text);
-        break;
-    }
-}
-
-static void free_opcode_list_data(struct asm_opcode_list *list)
-{
-    int i;
-    for (i = 0; i < list->count; i++) {
-        generator_free_opcode_data(list->data[i]);
-        jacc_free(list->data[i]);
-    }
     jacc_free(list->data);
 }
 
@@ -949,9 +910,4 @@ extern void generator_free_code(code_t code)
     free_opcode_list_data(&code->opcode_list);
     free_opcode_list_data(&code->data_list);
     jacc_free(code);
-}
-
-extern struct asm_command *generator_get_command(enum asm_command_type type)
-{
-    return &commands[type];
 }

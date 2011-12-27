@@ -1,3 +1,5 @@
+REGISTER(NONE, none_reg)
+
 REGISTER(EAX, eax)
 REGISTER(EBX, ebx)
 REGISTER(ECX, ecx)
