@@ -124,7 +124,7 @@ int opt_lea_lea(asm_command_t *cmd)
  * lea reg1, []
  * mov reg2, reg1
  * =>
- * lea reg, []
+ * lea reg2, []
  */
 
 int opt_lea_mov(asm_command_t *cmd)
